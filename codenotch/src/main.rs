@@ -328,15 +328,33 @@ fn open_provider_page(provider: String) {
     let _ = cmd.spawn();
 }
 
-/// Card expansion state: Some(hot rectangles, in **physical pixels** relative to the window's
-/// top-left as x,y,w,h) = expanded; None = collapsed. The page converts the rectangles with its
-/// own devicePixelRatio before reporting them, so no scale conversion happens on this side —
-/// WebView2's DPR and the window's scale_factor can disagree (see report_dpr).
-static HOT: Mutex<Option<Vec<[f64; 4]>>> = Mutex::new(None);
+/// Hot rectangles in **physical pixels**, window-relative, as x,y,w,h: the pill, plus the card
+/// while it is open. The page converts by its own devicePixelRatio before reporting, so no scale
+/// conversion happens here — WebView2's DPR and the window's scale_factor can disagree (see
+/// report_dpr).
+///
+/// Empty means click-through: before the page has reported, one lost click on the notch beats
+/// eating every click aimed at the window behind it.
+static HOT: Mutex<Vec<[f64; 4]>> = Mutex::new(Vec::new());
+
+/// Read only by the collapse timer — the click gate goes by the rectangles, since the pill is
+/// clickable whether or not the card is up.
+static EXPANDED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 #[tauri::command]
-fn set_expanded(on: bool, rects: Option<Vec<[f64; 4]>>) {
-    *HOT.lock().unwrap() = if on { Some(rects.unwrap_or_default()) } else { None };
+fn set_hot(rects: Vec<[f64; 4]>, expanded: bool) {
+    *HOT.lock().unwrap() = rects;
+    EXPANDED.store(expanded, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Setting `WS_EX_TRANSPARENT` by hand instead looks like it should work, and does not: it applies
+/// to the notch window, but WebView2 keeps child HWNDs that hit-testing descends into and they
+/// never get the bit. `WS_EX_LAYERED` is what makes the window answer as one surface, so the helper
+/// that sets both is the only route. Clearing it again is safe — the notch is not otherwise layered
+/// (its transparency is DWM composition), so the window returns to the styles it had.
+fn set_click_through(app: &AppHandle, on: bool) {
+    let Some(w) = app.get_webview_window("notch") else { return };
+    let _ = w.set_ignore_cursor_events(on);
 }
 
 /// The WebView zoom currently applied (1.0 = uncorrected)
@@ -388,46 +406,86 @@ fn report_dpr(app: AppHandle, dpr: f64, w: f64, h: f64) {
     }
 }
 
+/// Slack around every hot rectangle: this is sampled on a timer, so a cursor arriving at the pill
+/// has to count as arrived slightly early, or a quick click lands between two polls while the
+/// window is still click-through and goes to whatever is behind it.
+const HOT_PAD: f64 = 10.0;
+
+/// Is the cursor on something the window is there for? `window` is the outer size in physical
+/// pixels, or None when it could not be read.
+fn cursor_in_hot(rects: &[[f64; 4]], lx: f64, ly: f64, window: Option<(f64, f64)>) -> bool {
+    if rects.is_empty() {
+        return false;
+    }
+    let in_window = window
+        .map(|(w, h)| lx >= 0.0 && ly >= 0.0 && lx < w && ly < h)
+        .unwrap_or(true);
+    if !in_window {
+        return false;
+    }
+    if rects.iter().any(|r| {
+        lx >= r[0] - HOT_PAD
+            && ly >= r[1] - HOT_PAD
+            && lx < r[0] + r[2] + HOT_PAD
+            && ly < r[1] + r[3] + HOT_PAD
+    }) {
+        return true;
+    }
+    // The gap between hot rectangles (pill and card) counts as inside: use the bounding box of all of them
+    if rects.len() > 1 {
+        let x0 = rects.iter().map(|r| r[0]).fold(f64::MAX, f64::min);
+        let y0 = rects.iter().map(|r| r[1]).fold(f64::MAX, f64::min);
+        let x1 = rects.iter().map(|r| r[0] + r[2]).fold(f64::MIN, f64::max);
+        let y1 = rects.iter().map(|r| r[1] + r[3]).fold(f64::MIN, f64::max);
+        return lx >= x0 && ly >= y0 && lx < x1 && ly < y1;
+    }
+    false
+}
+
+/// Was 150 ms, when this only decided whether the card stayed up. It now also gates whether a click
+/// reaches the notch, and at 150 ms a click arriving in the wrong sample went to the window behind.
+const WATCHDOG_MS: u64 = 50;
+/// Kept at the original 300 ms rather than falling out of the faster poll, which would make the
+/// card twitchy.
+const LEAVE_MS: u64 = 300;
+
 /// WebView2's mouseleave is unreliable inside a NOACTIVATE transparent window — a cursor that
 /// leaves quickly often produces no WM_MOUSELEAVE, and the card stays up. Rather than trust DOM
-/// events, the Rust side watches the system cursor while the card is expanded and emits
-/// pointer_left once the cursor is outside; the page collapses after its 250 ms grace period.
-/// "Outside the window" is not the test, though: the window has a 340×460 transparent area, so
-/// the cursor is compared against the hot rectangles the page reports (pill, card, and the gap
-/// between them), and two consecutive misses (300 ms) count as leaving.
+/// events, the Rust side watches the system cursor and emits pointer_left once it is outside; the
+/// page collapses after its 250 ms grace period. "Outside the window" is not the test, though: the
+/// window is mostly transparent, so the cursor is compared against the hot rectangles the page
+/// reports (pill, card, and the gap between them).
+///
+/// It also gates click-through (#106), which is why it runs whether or not the card is open. That
+/// ordering is load-bearing: the window ignores the cursor while it is click-through, so the page
+/// gets no mousemove out there and cannot see the pointer arriving. This loop does, and hands the
+/// window its input back in time for the page to open the card.
 fn start_pointer_watchdog(app: AppHandle) {
     std::thread::spawn(move || {
+        let need = (LEAVE_MS / WATCHDOG_MS).max(1) as u8;
         let mut miss = 0u8;
+        // Last value pushed: this changes only when the cursor crosses an edge
+        let mut click_through: Option<bool> = None;
         loop {
-            std::thread::sleep(std::time::Duration::from_millis(150));
-            let rects = match HOT.lock().unwrap().clone() {
-                Some(r) => r,
-                None => {
-                    miss = 0;
-                    continue;
-                }
-            };
+            std::thread::sleep(std::time::Duration::from_millis(WATCHDOG_MS));
             let Some(w) = app.get_webview_window("notch") else { continue };
             let (Ok(pos), Ok(cur)) = (w.outer_position(), app.cursor_position()) else { continue };
+            let rects = HOT.lock().unwrap().clone();
             // Cursor position relative to the window's top-left, in physical pixels; the hot rectangles are physical too, so no scale conversion
             let lx = cur.x - pos.x as f64;
             let ly = cur.y - pos.y as f64;
-            const PAD: f64 = 10.0;
-            let in_window = w
-                .outer_size()
-                .map(|s| lx >= 0.0 && ly >= 0.0 && lx < s.width as f64 && ly < s.height as f64)
-                .unwrap_or(true);
-            let mut inside = in_window && rects.iter().any(|r| {
-                lx >= r[0] - PAD && ly >= r[1] - PAD && lx < r[0] + r[2] + PAD && ly < r[1] + r[3] + PAD
-            });
-            // The gap between hot rectangles (pill and card) counts as inside: use the bounding box of all of them
-            if !inside && in_window && rects.len() > 1 {
-                let x0 = rects.iter().map(|r| r[0]).fold(f64::MAX, f64::min);
-                let y0 = rects.iter().map(|r| r[1]).fold(f64::MAX, f64::min);
-                let x1 = rects.iter().map(|r| r[0] + r[2]).fold(f64::MIN, f64::max);
-                let y1 = rects.iter().map(|r| r[1] + r[3]).fold(f64::MIN, f64::max);
-                inside = lx >= x0 && ly >= y0 && lx < x1 && ly < y1;
+            let size = w.outer_size().ok().map(|s| (s.width as f64, s.height as f64));
+            let inside = cursor_in_hot(&rects, lx, ly, size);
+
+            if click_through != Some(!inside) {
+                set_click_through(&app, !inside);
+                click_through = Some(!inside);
+                applog(&format!(
+                    "click-through {} at cursor_rel=({lx:.0},{ly:.0}) rects={rects:?}",
+                    if inside { "off (cursor on the notch)" } else { "on (cursor elsewhere)" }
+                ));
             }
+
             static LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
             if LOGGED.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 12 {
                 applog(&format!(
@@ -435,13 +493,18 @@ fn start_pointer_watchdog(app: AppHandle) {
                     pos.x, pos.y
                 ));
             }
+
+            if !EXPANDED.load(std::sync::atomic::Ordering::Relaxed) {
+                miss = 0;
+                continue;
+            }
             if inside {
                 miss = 0;
             } else {
                 miss += 1;
-                if miss >= 2 {
+                if miss >= need {
                     miss = 0;
-                    *HOT.lock().unwrap() = None;
+                    EXPANDED.store(false, std::sync::atomic::Ordering::Relaxed);
                     let _ = app.emit("pointer_left", ());
                 }
             }
@@ -616,7 +679,7 @@ fn main() {
             open_provider_page,
             refresh_usage,
             open_usage_page,
-            set_expanded,
+            set_hot,
             report_dpr,
             log_js,
             focus_session,
@@ -676,4 +739,78 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("Codenotch failed to start");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{cursor_in_hot, HOT_PAD};
+
+    /// Real values from the run.log in #106: a 2560×1600 display at 150 %.
+    const PILL: [f64; 4] = [405.0, 183.5, 105.0, 323.0];
+    const CARD: [f64; 4] = [21.0, 142.5, 369.0, 262.0];
+    const WINDOW: Option<(f64, f64)> = Some((510.0, 690.0));
+
+    #[test]
+    fn nothing_is_hot_before_the_page_reports() {
+        assert!(!cursor_in_hot(&[], 450.0, 300.0, WINDOW));
+    }
+
+    #[test]
+    fn the_pill_is_hot() {
+        assert!(cursor_in_hot(&[PILL], 450.0, 300.0, WINDOW));
+    }
+
+    #[test]
+    fn the_transparent_area_beside_the_pill_is_not() {
+        assert!(!cursor_in_hot(&[PILL], 0.0, 297.0, WINDOW));
+        assert!(!cursor_in_hot(&[PILL], 100.0, 400.0, WINDOW));
+    }
+
+    #[test]
+    fn the_card_is_hot_while_it_is_open() {
+        assert!(!cursor_in_hot(&[PILL], 100.0, 250.0, WINDOW));
+        assert!(cursor_in_hot(&[PILL, CARD], 100.0, 250.0, WINDOW));
+    }
+
+    #[test]
+    fn the_shipped_pill_and_card_have_no_cold_strip_between_them() {
+        // The 15 px gap is narrower than the 20 px the two pads bring, so the pads already bridge
+        // it and the bounding box never fires for the shipped layout. Pinned: if that stops being
+        // true the crossing starts depending on the bounding box, and the card blinks out mid-travel.
+        let x = (CARD[0] + CARD[2] + PILL[0]) / 2.0;
+        assert!(cursor_in_hot(&[PILL, CARD], x, 250.0, WINDOW));
+        const { assert!(PILL[0] - (CARD[0] + CARD[2]) < 2.0 * HOT_PAD) };
+    }
+
+    /// Far enough apart that the pads do not meet — the case the bounding box exists for.
+    const FAR_A: [f64; 4] = [0.0, 0.0, 50.0, 50.0];
+    const FAR_B: [f64; 4] = [200.0, 0.0, 50.0, 50.0];
+
+    #[test]
+    fn a_wide_gap_is_bridged_by_the_bounding_box() {
+        assert!(cursor_in_hot(&[FAR_A, FAR_B], 125.0, 25.0, None));
+    }
+
+    #[test]
+    fn the_bounding_box_needs_two_rectangles_to_bridge_anything() {
+        assert!(!cursor_in_hot(&[FAR_A], 125.0, 25.0, None));
+    }
+
+    #[test]
+    fn the_pad_reaches_slightly_past_the_pill() {
+        assert!(cursor_in_hot(&[PILL], PILL[0] - HOT_PAD + 1.0, 300.0, WINDOW));
+        assert!(!cursor_in_hot(&[PILL], PILL[0] - HOT_PAD - 1.0, 300.0, WINDOW));
+    }
+
+    #[test]
+    fn a_cursor_off_the_window_is_never_hot() {
+        assert!(!cursor_in_hot(&[PILL], 515.0, 300.0, WINDOW));
+        assert!(!cursor_in_hot(&[PILL], 450.0, -5.0, WINDOW));
+    }
+
+    #[test]
+    fn an_unreadable_window_size_falls_back_to_the_rectangles() {
+        assert!(cursor_in_hot(&[PILL], 450.0, 300.0, None));
+        assert!(!cursor_in_hot(&[PILL], 100.0, 300.0, None));
+    }
 }
