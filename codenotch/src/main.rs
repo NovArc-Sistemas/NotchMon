@@ -13,6 +13,7 @@ mod usage;
 mod codex;
 mod cursor;
 mod antigravity;
+mod agy_cli;
 mod glyphs;
 mod activity;
 mod diag;
@@ -345,6 +346,9 @@ static EXPANDED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::
 fn set_hot(rects: Vec<[f64; 4]>, expanded: bool) {
     *HOT.lock().unwrap() = rects;
     EXPANDED.store(expanded, std::sync::atomic::Ordering::Relaxed);
+    if expanded {
+        antigravity::request_hover_refresh();
+    }
 }
 
 /// Setting `WS_EX_TRANSPARENT` by hand instead looks like it should work, and does not: it applies
