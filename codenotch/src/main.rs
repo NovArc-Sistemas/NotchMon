@@ -14,6 +14,7 @@ mod codex;
 mod cursor;
 mod antigravity;
 mod glyphs;
+mod trayicon;
 mod activity;
 mod diag;
 mod watcher;
@@ -47,6 +48,13 @@ fn resolved_lang(raw: &str) -> String {
     } else {
         raw.to_string()
     }
+}
+
+/// The size multiplier chosen with the slider, clamped to what the config allows.
+pub fn ui_scale(app: &AppHandle) -> f64 {
+    let st = app.state::<AppState>();
+    let c = st.cfg.lock().unwrap();
+    c.scale.clamp(config::SCALE_MIN, config::SCALE_MAX)
 }
 
 pub fn broadcast(app: &AppHandle) {
@@ -203,11 +211,9 @@ pub fn apply_lang(app: &AppHandle, lang: &str) {
         c.lang = lang.to_string();
         config::save(&c);
     }
-    if let Some(tray) = app.tray_by_id("main") {
-        if let Ok(menu) = tray::build_menu(app, lang) {
-            let _ = tray.set_menu(Some(menu));
-        }
-    }
+    // Through refresh_menu, which makes sure the swap happens on the main thread: doing it from the
+    // settings window's thread left the tray with a menu that would never open again.
+    tray::refresh_menu(app);
     broadcast(app);
 }
 
@@ -558,6 +564,381 @@ fn set_lang(app: AppHandle, lang: String) {
     apply_lang(&app, &lang);
 }
 
+// ---------------- notch size ----------------
+
+#[tauri::command]
+fn get_scale(app: AppHandle) -> f64 {
+    ui_scale(&app)
+}
+
+/// Called by the slider on every move. Only the value is stored here: the page scales the pill
+/// itself with a CSS zoom, so the window is never resized and the hover card holding the slider
+/// keeps its size — otherwise the slider would shrink away from under the cursor mid-drag.
+#[tauri::command]
+fn set_scale(app: AppHandle, scale: f64) {
+    let value = {
+        let st = app.state::<AppState>();
+        let mut c = st.cfg.lock().unwrap();
+        c.scale = scale.clamp(config::SCALE_MIN, config::SCALE_MAX);
+        config::save(&c);
+        c.scale
+    };
+    // The notch draws its own size, so it has to be told. Without this the slider in the settings
+    // window saved the value but nothing changed on screen until the app was restarted.
+    let _ = app.emit("scale", value);
+}
+
+// ---------------- tray icon readings ----------------
+
+/// The headline percentage of a reading: its fullest window, as a whole number 0-100.
+///
+/// Deliberately the same rule as `headlineOf` in ui/notch.html, so the tray icon and the ring can
+/// never disagree: consider only metered windows — a `count` window (Antigravity's requests today,
+/// say) has no published denominator, so its `used` is not a share of anything and averaging or
+/// maximising over it would invent a number.
+fn headline_pct(s: &usage::UsageSnapshot) -> Option<u32> {
+    let top = s
+        .windows
+        .iter()
+        .filter(|w| w.count.is_none())
+        .map(|w| w.used)
+        .fold(f64::NAN, f64::max);
+    if top.is_nan() {
+        return None;
+    }
+    Some((top * 100.0).round().clamp(0.0, 100.0) as u32)
+}
+
+/// Ids match the ones the page uses, so the tray, the settings window and the notch all agree.
+fn snapshot_of(app: &AppHandle, id: &str) -> usage::UsageSnapshot {
+    let st = app.state::<AppState>();
+    match id {
+        "codex" => st.codex.lock().unwrap().clone(),
+        "cursor" => st.cursor.lock().unwrap().clone(),
+        "gemini" => st.antigravity.lock().unwrap().clone(),
+        _ => st.usage.lock().unwrap().clone(),
+    }
+}
+
+/// What one half of the icon should show. An empty (or "top") window id means "whichever of this
+/// provider's windows is fullest", which is the notch's own rule and the only choice that survives
+/// a provider adding or renaming its windows.
+fn reading_for_slot(app: &AppHandle, slot: &config::TraySlot) -> Option<u32> {
+    let snap = snapshot_of(app, &slot.provider);
+    if snap.status == "absent" {
+        return None;
+    }
+    if slot.window.is_empty() || slot.window == "top" {
+        return headline_pct(&snap);
+    }
+    snap.windows
+        .iter()
+        .find(|w| w.id == slot.window && w.count.is_none())
+        .map(|w| (w.used * 100.0).round().clamp(0.0, 100.0) as u32)
+}
+
+/// One provider and the windows it currently reports, for the settings window's pickers. Built
+/// from live readings rather than a hard-coded table, so a provider that gains a window shows it.
+#[derive(serde::Serialize)]
+struct TrayOption {
+    id: String,
+    label: String,
+    status: String,
+    windows: Vec<TrayWindowOption>,
+}
+
+#[derive(serde::Serialize)]
+struct TrayWindowOption {
+    id: String,
+    label: String,
+    used: Option<u32>,
+}
+
+#[tauri::command]
+fn get_tray_options(app: AppHandle) -> Vec<TrayOption> {
+    TRAY_PROVIDER_IDS
+        .iter()
+        .map(|id| {
+            let snap = snapshot_of(&app, id);
+            TrayOption {
+                id: (*id).to_string(),
+                label: provider_label(id).to_string(),
+                status: snap.status.clone(),
+                windows: snap
+                    .windows
+                    .iter()
+                    .filter(|w| w.count.is_none()) // a count window has no percentage to draw
+                    .map(|w| TrayWindowOption {
+                        id: w.id.clone(),
+                        label: w.label.clone(),
+                        used: Some((w.used * 100.0).round().clamp(0.0, 100.0) as u32),
+                    })
+                    .collect(),
+            }
+        })
+        .collect()
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct TrayConfig {
+    mode: String,
+    slots: Vec<config::TraySlot>,
+}
+
+#[tauri::command]
+fn get_tray_config(app: AppHandle) -> TrayConfig {
+    let st = app.state::<AppState>();
+    let c = st.cfg.lock().unwrap();
+    TrayConfig { mode: c.tray_mode.clone(), slots: c.tray_slots.clone() }
+}
+
+#[tauri::command]
+fn set_tray_config(app: AppHandle, cfg: TrayConfig) {
+    {
+        let st = app.state::<AppState>();
+        let mut c = st.cfg.lock().unwrap();
+        c.tray_mode = cfg.mode;
+        c.tray_slots = cfg.slots;
+        // Kept in step so an older build reading this file still shows something sensible
+        c.tray_providers = c.tray_slots.iter().map(|s| s.provider.clone()).collect();
+        config::save(&c);
+    }
+    repaint_tray(&app);
+    tray::refresh_menu(&app);
+}
+
+/// The real icon, as a picture, for the settings preview — so what is being edited cannot drift
+/// from what the taskbar actually draws.
+#[tauri::command]
+fn get_tray_preview(app: AppHandle, cfg: TrayConfig) -> Option<String> {
+    let values: Vec<Option<u32>> = cfg.slots.iter().map(|s| reading_for_slot(&app, s)).collect();
+    let rgba = match cfg.mode.as_str() {
+        "bars" if !values.is_empty() => trayicon::bars_rgba(&values),
+        "numbers" if !values.is_empty() => trayicon::numbers_rgba(&values),
+        _ => return None, // "off" shows the app's own mark, which the page draws itself
+    };
+    trayicon::to_data_url(&rgba)
+}
+
+/// What each ring on the notch shows: the provider, and which of its windows. An empty list means
+/// every provider, each showing whichever window is fullest — the original behaviour.
+#[tauri::command]
+fn get_notch_slots(app: AppHandle) -> Vec<config::TraySlot> {
+    let st = app.state::<AppState>();
+    let c = st.cfg.lock().unwrap();
+    c.notch_slots.clone()
+}
+
+#[tauri::command]
+fn set_notch_slots(app: AppHandle, slots: Vec<config::TraySlot>) {
+    let list = {
+        let st = app.state::<AppState>();
+        let mut c = st.cfg.lock().unwrap();
+        c.notch_slots = slots;
+        // Kept in step so an older build reading this file still shows the right providers
+        c.notch_providers = c.notch_slots.iter().map(|s| s.provider.clone()).collect();
+        config::save(&c);
+        c.notch_slots.clone()
+    };
+    // The notch is a separate window and draws its own cells, so it has to be told.
+    let _ = app.emit("notch_slots", list);
+}
+
+/// The application's own icon, so the settings window shows what the taskbar shows.
+#[tauri::command]
+fn get_app_icon() -> Option<String> {
+    trayicon::app_mark_data_url()
+}
+
+// ---------------- what is on screen at all ----------------
+
+#[derive(serde::Serialize)]
+struct UiFlags {
+    notch_visible: bool,
+    tray_visible: bool,
+}
+
+#[tauri::command]
+fn get_ui_flags(app: AppHandle) -> UiFlags {
+    let st = app.state::<AppState>();
+    let c = st.cfg.lock().unwrap();
+    UiFlags { notch_visible: c.notch_visible, tray_visible: c.tray_visible }
+}
+
+/// Hiding both would leave the app running with nothing to click, so the tray icon is kept
+/// whenever the notch is off. The answer says what was actually stored, so the settings window can
+/// show the corrected state rather than a lie.
+#[tauri::command]
+fn set_ui_flags(app: AppHandle, notch_visible: bool, tray_visible: bool) -> UiFlags {
+    let flags = {
+        let st = app.state::<AppState>();
+        let mut c = st.cfg.lock().unwrap();
+        c.notch_visible = notch_visible;
+        c.tray_visible = if notch_visible { tray_visible } else { true };
+        config::save(&c);
+        UiFlags { notch_visible: c.notch_visible, tray_visible: c.tray_visible }
+    };
+    apply_visibility(&app);
+    flags
+}
+
+/// Puts the two switches into effect.
+pub fn apply_visibility(app: &AppHandle) {
+    let (notch, tray_on) = {
+        let st = app.state::<AppState>();
+        let c = st.cfg.lock().unwrap();
+        (c.notch_visible, c.tray_visible)
+    };
+    if let Some(w) = app.get_webview_window("notch") {
+        if notch {
+            let _ = w.show();
+            place_notch(app);
+        } else {
+            let _ = w.hide();
+        }
+    }
+    if let Some(t) = app.tray_by_id("main") {
+        let _ = t.set_visible(tray_on);
+    }
+}
+
+// ---------------- settings that used to live in the tray menu ----------------
+
+#[tauri::command]
+fn get_lang(app: AppHandle) -> String {
+    let st = app.state::<AppState>();
+    let c = st.cfg.lock().unwrap();
+    c.lang.clone()
+}
+
+#[tauri::command]
+fn get_autostart() -> bool {
+    autostart::is_enabled()
+}
+
+#[tauri::command]
+fn set_autostart(on: bool) -> Result<String, String> {
+    if on {
+        autostart::enable()
+    } else {
+        autostart::disable()
+    }
+}
+
+#[tauri::command]
+fn get_hooks_installed() -> bool {
+    hooks_install::is_installed()
+}
+
+#[tauri::command]
+fn set_hooks_installed(on: bool) -> Result<String, String> {
+    if on {
+        hooks_install::install()
+    } else {
+        hooks_install::uninstall()
+    }
+}
+
+#[tauri::command]
+fn reset_notch_position(app: AppHandle) {
+    reset_bar(&app);
+}
+
+#[tauri::command]
+fn open_settings(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("settings") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
+pub fn provider_label(id: &str) -> &'static str {
+    match id {
+        "codex" => "Codex",
+        "cursor" => "Cursor",
+        "gemini" => "Antigravity",
+        _ => "Claude",
+    }
+}
+
+/// Every provider the tray menu can offer, in the order the notch shows them.
+pub const TRAY_PROVIDER_IDS: [&str; 4] = ["claude", "codex", "cursor", "gemini"];
+
+/// Draws the icon and writes the tooltip. Shared by the polling thread and by the settings window,
+/// so a change made in settings shows up at once rather than on the next poll.
+fn paint_tray(app: &AppHandle, mode: &str, slots: &[config::TraySlot], values: &[Option<u32>]) {
+    let Some(tray) = app.tray_by_id("main") else {
+        applog("tray: no tray with id 'main' — icon not updated");
+        return;
+    };
+    let outcome = match mode {
+        "numbers" if !values.is_empty() => tray.set_icon(Some(trayicon::numbers(values))),
+        "bars" if !values.is_empty() => tray.set_icon(Some(trayicon::bars(values))),
+        // "Plain icon": the application's own icon
+        _ => match trayicon::app_mark() {
+            Some(img) => tray.set_icon(Some(img)),
+            None => Ok(()), // leave whatever icon is there rather than clearing it to nothing
+        },
+    };
+    if let Err(e) = outcome {
+        applog(&format!("tray: set_icon FAILED mode={mode} values={values:?}: {e}"));
+    }
+    // The tooltip lists every slot, including any the digit layout could not fit, so nothing is
+    // silently dropped.
+    let parts: Vec<String> = slots
+        .iter()
+        .zip(values.iter())
+        .map(|(slot, v)| {
+            format!(
+                "{} {}",
+                provider_label(&slot.provider),
+                v.map(|p| format!("{p}%")).unwrap_or_else(|| "—".into())
+            )
+        })
+        .collect();
+    let tip = if parts.is_empty() {
+        concat!("Codenotch v", env!("CARGO_PKG_VERSION")).to_string()
+    } else {
+        format!("Codenotch — {}", parts.join(" · "))
+    };
+    let _ = tray.set_tooltip(Some(&tip));
+}
+
+/// Reads the current settings and readings, and repaints immediately.
+pub fn repaint_tray(app: &AppHandle) {
+    let (mode, slots) = {
+        let st = app.state::<AppState>();
+        let c = st.cfg.lock().unwrap();
+        (c.tray_mode.clone(), c.tray_slots.clone())
+    };
+    let values: Vec<Option<u32>> = slots.iter().map(|s| reading_for_slot(app, s)).collect();
+    paint_tray(app, &mode, &slots, &values);
+}
+
+/// Repaints when a reading changes. Every 2 seconds, but it only touches the icon when something
+/// actually moved, so it costs nothing while idle.
+fn start_tray_updater(app: AppHandle) {
+    std::thread::spawn(move || {
+        let mut last: Option<(String, Vec<config::TraySlot>, Vec<Option<u32>>)> = None;
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            let (mode, slots) = {
+                let st = app.state::<AppState>();
+                let c = st.cfg.lock().unwrap();
+                (c.tray_mode.clone(), c.tray_slots.clone())
+            };
+            let values: Vec<Option<u32>> = slots.iter().map(|s| reading_for_slot(&app, s)).collect();
+            let key = (mode.clone(), slots.clone(), values.clone());
+            if last.as_ref() == Some(&key) {
+                continue;
+            }
+            last = Some(key);
+            paint_tray(&app, &mode, &slots, &values);
+        }
+    });
+}
+
 /// Seen-clears-it: looking at a session acknowledges it (engine behaviour, unchanged)
 #[cfg(windows)]
 fn ack_scan(app: &AppHandle) -> bool {
@@ -684,7 +1065,25 @@ fn main() {
             log_js,
             focus_session,
             dismiss_session,
-            set_lang
+            set_lang,
+            get_scale,
+            set_scale,
+            get_tray_options,
+            get_tray_config,
+            set_tray_config,
+            get_tray_preview,
+            get_notch_slots,
+            set_notch_slots,
+            get_app_icon,
+            get_ui_flags,
+            set_ui_flags,
+            get_lang,
+            get_autostart,
+            set_autostart,
+            get_hooks_installed,
+            set_hooks_installed,
+            reset_notch_position,
+            open_settings
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
@@ -694,6 +1093,20 @@ fn main() {
                 let _ = w.show();
             }
             tray::setup(&handle)?;
+            // Closing a Tauri window destroys it by default, and a destroyed window cannot be shown
+            // again — which is why Settings opened once and then never again. Hide it instead.
+            if let Some(w) = handle.get_webview_window("settings") {
+                let hide_me = w.clone();
+                w.on_window_event(move |e| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = e {
+                        api.prevent_close();
+                        let _ = hide_me.hide();
+                    }
+                });
+            }
+            start_tray_updater(handle.clone());
+            // Honours the saved switches: a notch hidden last time stays hidden.
+            apply_visibility(&handle);
             server::start(handle.clone(), port);
             watcher::start(handle.clone());
             usage::start(handle.clone());

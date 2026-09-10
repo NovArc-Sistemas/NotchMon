@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Codenotch Settings</title>
+<style>
+  /* Same visual language as notch.html: near-black panels, #1e1e1e rules, Segoe UI, muted greys.
+     The only saturated colours are the three usage bands the tray icon itself draws
+     (trayicon.rs band_color): under 50% green, under 80% yellow, else red. Nothing else is
+     coloured — no accent, no gradient, no shadow. */
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%}
+  body{
+    background:#0a0a0a;color:#fff;font-family:"Segoe UI",system-ui,sans-serif;font-size:13px;
+    overflow:hidden;user-select:none;
+  }
+
+  /* ---- the two columns: a fixed sidebar of tabs, a scrolling pane beside it ----------------
+     The window is resizable down to 460x520. Only #main scrolls, so the tab list stays put and
+     nothing is ever clipped: at the smallest size the content column is 310 px wide and every
+     row inside it wraps rather than overflowing. */
+  #shell{display:flex;height:100%;min-height:0}
+
+  #side{
+    flex:0 0 150px;width:150px;min-width:150px;background:#0d0d0d;border-right:1px solid #1e1e1e;
+    overflow-y:auto;overflow-x:hidden;padding:14px 8px 20px;
+  }
+  .s-group{
+    font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:#6a6a6a;
+    padding:14px 8px 6px;
+  }
+  .s-group.first{padding-top:0}
+  .tab{
+    display:block;width:100%;text-align:left;background:none;border:1px solid transparent;
+    border-radius:8px;color:#b0b0b3;font:inherit;font-size:12.5px;padding:7px 9px;cursor:pointer;
+    margin-bottom:2px;
+  }
+  .tab:hover{background:#141414;color:#e8e8ea}
+  .tab.on{background:#1c1c1c;border-color:#2e2e2e;color:#fff;font-weight:600}
+  .tab:focus-visible{outline:1px solid #8a8a8a;outline-offset:-1px}
+
+  #main{flex:1 1 auto;min-width:0;overflow-y:auto;overflow-x:hidden;padding:16px 18px 30px}
+
+  /* Error strip — every failed command lands here instead of throwing */
+  #strip{
+    display:none;position:sticky;top:0;z-index:5;margin-bottom:12px;
+    font-size:11px;color:#f87171;background:#160e0e;border:1px solid #3a1f1f;
+    border-radius:10px;padding:7px 10px;overflow-wrap:anywhere;
+  }
+  #strip.show{display:block}
+
+  /* ---- pane furniture ---------------------------------------------------------------- */
+  .pane[hidden]{display:none}
+  .p-title{font-size:16px;font-weight:700;color:#fff;margin:0}
+  .p-lede{font-size:11px;color:#808080;margin:4px 0 0;line-height:1.5}
+
+  .block{border-top:1px solid #1e1e1e;margin-top:20px;padding-top:16px}
+  .block.first{border-top:none;margin-top:16px;padding-top:0}
+  .b-head{font-size:13px;font-weight:700;color:#e8e8ea}
+  .b-sub{font-size:11px;color:#808080;margin-top:3px;line-height:1.5}
+
+  .c-title{font-size:14px;font-weight:700;color:#fff}
+  .c-sub{font-size:11px;color:#808080;margin-top:2px;line-height:1.5}
+  .c-note{font-size:11px;color:#c8c8c8;line-height:1.5}
+  .c-note.dim{color:#808080}
+  .c-note[hidden]{display:none}
+
+  /* A setting: words on the left, the control on the right */
+  .row{display:flex;align-items:flex-start;gap:14px;padding:11px 0}
+  .row + .row{border-top:1px solid #161616}
+  .r-text{flex:1 1 auto;min-width:0}
+  .r-name{font-size:12.5px;color:#e8e8ea;font-weight:600}
+  .r-why{font-size:11px;color:#808080;margin-top:3px;line-height:1.5;overflow-wrap:anywhere}
+  .r-ctl{flex:0 0 auto;margin-top:2px}
+
+  /* Real switches, not checkboxes. Greyscale only: pale track when on, dark when off. */
+  .sw{
+    position:relative;width:40px;height:22px;border-radius:11px;background:#242424;
+    border:1px solid #2e2e2e;padding:0;cursor:pointer;transition:background .15s,border-color .15s;
+  }
+  .sw .knob{
+    position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:8px;background:#6a6a6a;
+    transition:left .15s,background .15s;
+  }
+  .sw:hover{border-color:#3f3f3f}
+  .sw[aria-checked="true"]{background:#c8c8c8;border-color:#c8c8c8}
+  .sw[aria-checked="true"] .knob{left:20px;background:#0a0a0a}
+  .sw[disabled]{opacity:.45;cursor:default}
+  .sw:focus-visible{outline:1px solid #8a8a8a;outline-offset:2px}
+
+  select{
+    background:#0a0a0a;border:1px solid #2e2e2e;border-radius:9px;color:#e8e8ea;font:inherit;
+    font-size:12px;padding:6px 8px;max-width:100%;cursor:pointer;
+  }
+  select:hover{border-color:#3f3f3f}
+  select:focus-visible{outline:1px solid #8a8a8a;outline-offset:1px}
+
+  .btn{
+    background:#0a0a0a;border:1px solid #2e2e2e;border-radius:9px;color:#e8e8ea;font:inherit;
+    font-size:12px;padding:7px 12px;cursor:pointer;
+  }
+  .btn:hover{border-color:#3f3f3f;background:#141414}
+  .btn:focus-visible{outline:1px solid #8a8a8a;outline-offset:1px}
+
+  /* A correction from Rust: what was asked for was not what was stored */
+  .fix{
+    font-size:11px;color:#c8c8c8;background:#111;border:1px solid #2e2e2e;border-radius:10px;
+    padding:8px 10px;margin-top:10px;line-height:1.5;
+  }
+  .fix[hidden]{display:none}
+
+  /* ---- taskbar icon editor (unchanged behaviour) --------------------------------------- */
+  .modes{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+  .mode{
+    flex:1 1 0;min-width:88px;background:#0a0a0a;border:1px solid #2e2e2e;border-radius:10px;
+    color:#b0b0b3;font:inherit;font-size:12px;padding:8px 6px;cursor:pointer;text-align:center;
+  }
+  .mode:hover{border-color:#3f3f3f;color:#e8e8ea}
+  .mode.on{background:#1c1c1c;border-color:#6a6a6a;color:#fff;font-weight:600}
+  .mode-sub{display:block;font-size:10px;color:#808080;font-weight:400;margin-top:2px}
+  .mode.on .mode-sub{color:#a0a0a3}
+
+  /* Preview row: big pixelated preview + the truth strip at real tray sizes */
+  .previewrow{display:flex;gap:14px;align-items:flex-start;margin-top:14px;flex-wrap:wrap}
+  #canvas{
+    position:relative;width:192px;height:192px;flex:0 0 auto;border-radius:10px;overflow:hidden;
+    border:1px solid #1e1e1e;
+    /* Faint checker so transparent pixels read as transparent, not as black */
+    background-color:#141414;
+    background-image:
+      linear-gradient(45deg,#181818 25%,transparent 25%,transparent 75%,#181818 75%),
+      linear-gradient(45deg,#181818 25%,transparent 25%,transparent 75%,#181818 75%);
+    background-size:16px 16px;background-position:0 0,8px 8px;
+  }
+  #pv{width:100%;height:100%;display:block;image-rendering:pixelated}
+  #pv.hide{display:none}
+  #ph{ /* placeholder for mode "off", where get_tray_preview returns null */
+    position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+    gap:10px;text-align:center;padding:14px;
+  }
+  #ph.show{display:flex}
+  /* 96 px is exactly three times the icon's real 32 px, so the pixels stay square and honest */
+  .ph-mark{width:96px;height:96px;display:flex;align-items:center;justify-content:center}
+  .ph-mark img{width:100%;height:100%;image-rendering:pixelated;display:block}
+
+  #regions{position:absolute;inset:0}
+  .region{
+    position:absolute;background:transparent;border:1px solid transparent;border-radius:3px;
+    padding:0;cursor:pointer;font:inherit;
+  }
+  .region:hover{background:rgba(255,255,255,.07);border-color:#4a4a4a}
+  .region.on{background:rgba(255,255,255,.05);border-color:#8a8a8a;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+  .region:focus-visible{outline:1px solid #8a8a8a;outline-offset:1px}
+  .r-num{
+    position:absolute;left:3px;top:2px;font-size:10px;font-weight:700;color:#808080;
+    text-shadow:0 1px 2px #000;
+  }
+  .region.on .r-num{color:#fff}
+
+  .truth{flex:1 1 190px;min-width:170px}
+  .truthstrip{
+    display:flex;align-items:flex-end;gap:14px;background:#000;border:1px solid #1e1e1e;
+    border-radius:10px;padding:12px 14px;margin-top:6px;
+  }
+  .truthcell{display:flex;flex-direction:column;align-items:center;gap:5px}
+  .truthcell img{image-rendering:pixelated;display:block}
+  .truthcell img.hide{visibility:hidden}
+  .truthcell span{font-size:9px;color:#808080;font-variant-numeric:tabular-nums}
+
+  /* Slot chips — the same slots as the overlay regions, reachable when the window is narrow */
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+  .chip{
+    display:flex;align-items:center;gap:6px;background:#0a0a0a;border:1px solid #2e2e2e;border-radius:9px;
+    padding:6px 8px;color:#b0b0b3;font:inherit;font-size:11px;cursor:pointer;max-width:100%;min-width:0;
+  }
+  .chip:hover{border-color:#3f3f3f;color:#e8e8ea}
+  .chip.on{border-color:#8a8a8a;background:#1c1c1c;color:#fff}
+  .chip b{font-weight:700;white-space:nowrap}
+  .chip .ctext{color:#808080;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .chip.on .ctext{color:#c8c8c8}
+  .chip-x{
+    background:none;border:none;color:#808080;font:inherit;font-size:12px;line-height:1;cursor:pointer;padding:0 2px;
+  }
+  .chip-x:hover{color:#f87171}
+  .chip-add{border-style:dashed}
+
+  /* Picker */
+  .picker{margin-top:14px;border-top:1px solid #1e1e1e;padding-top:12px}
+  .p-head{font-size:11px;color:#808080;margin-bottom:8px}
+  .p-head b{color:#e8e8ea}
+  .p-prov{margin-bottom:10px}
+  .p-prov-head{display:flex;align-items:baseline;gap:8px;padding:0 2px 4px;flex-wrap:wrap}
+  .p-prov-name{font-size:12px;font-weight:700;color:#e8e8ea}
+  .p-status{font-size:10px;color:#808080;margin-left:auto;white-space:nowrap}
+  .p-status.warn{color:#facc15}
+  .p-item{
+    display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:#0a0a0a;
+    border:1px solid #1a1a1a;border-radius:9px;padding:7px 9px;margin-bottom:4px;color:#e8e8ea;
+    font:inherit;font-size:12px;cursor:pointer;min-width:0;
+  }
+  .p-item:hover{border-color:#3f3f3f;background:#141414}
+  .p-item.on{border-color:#8a8a8a;background:#1c1c1c}
+  .p-item:focus-visible{outline:1px solid #8a8a8a;outline-offset:1px}
+  .p-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .p-any{color:#c8c8c8;font-style:italic}
+  .p-pct{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:#b0b0b3;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .p-dot{width:7px;height:7px;border-radius:4px;flex:0 0 auto}
+  .p-tick{width:12px;flex:0 0 auto;color:#fff;font-size:11px}
+  .p-empty{font-size:11px;color:#808080;padding:2px 2px 6px}
+
+  /* Notch providers — the picker's rows again, ticked rather than chosen */
+  .np-list{margin-top:12px}
+  .np-row{margin-bottom:10px}
+  .np-win{width:100%;margin-top:4px}
+  .np-right{margin-left:auto;display:flex;align-items:center;gap:8px;white-space:nowrap;min-width:0}
+  .np-right .p-status{margin-left:0}
+  .np-lock{font-size:10px;color:#808080;font-style:italic}
+  .p-item.lock{cursor:default}
+
+  /* Notch size */
+  .c-scale{display:flex;align-items:center;gap:10px;margin-top:12px}
+  .c-scale input[type=range]{-webkit-appearance:none;appearance:none;flex:1;min-width:0;height:3px;border-radius:2px;background:#2d2d2d;outline:none}
+  .c-scale input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:2px;background:#2d2d2d}
+  .c-scale input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;margin-top:-4.5px;border-radius:50%;background:#8a8a8a;cursor:pointer}
+  .c-scale input[type=range]:hover::-webkit-slider-thumb{background:#b0b0b3}
+  .c-scale-val{font-size:11px;color:#c8c8c8;min-width:38px;text-align:right;font-variant-numeric:tabular-nums}
+
+  /* About */
+  .about-top{display:flex;align-items:center;gap:12px;margin-top:16px}
+  .about-mark{width:40px;height:40px;image-rendering:pixelated;display:block;flex:0 0 auto}
+  .about-name{font-size:15px;font-weight:700;color:#fff}
+  .about-ver{font-size:11px;color:#808080;margin-top:2px;font-variant-numeric:tabular-nums}
+  .path{
+    font-family:Consolas,"Courier New",monospace;font-size:11px;color:#b0b0b3;background:#0a0a0a;
+    border:1px solid #1e1e1e;border-radius:8px;padding:6px 8px;margin-top:8px;overflow-wrap:anywhere;
+    user-select:text;
+  }
+
+  /* Quiet "Saved" confirmation */
+  #toast{
+    position:fixed;right:14px;bottom:12px;background:#1c1c1c;border:1px solid #2e2e2e;border-radius:9px;
+    padding:5px 10px;font-size:11px;color:#c8c8c8;opacity:0;transition:opacity .35s ease;pointer-events:none;
+  }
+  #toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="shell">
+
+  <!-- ---- the tab list ------------------------------------------------------------------ -->
+  <nav id="side" role="tablist" aria-orientation="vertical" aria-label="Settings sections">
+    <div class="s-group first">Appearance</div>
+    <button class="tab" id="tab-tray" role="tab" aria-controls="pane-tray" aria-selected="false" tabindex="-1">Taskbar icon</button>
+    <button class="tab" id="tab-notch" role="tab" aria-controls="pane-notch" aria-selected="false" tabindex="-1">Notch</button>
+    <div class="s-group">General</div>
+    <button class="tab" id="tab-behaviour" role="tab" aria-controls="pane-behaviour" aria-selected="false" tabindex="-1">Behaviour</button>
+    <button class="tab" id="tab-hooks" role="tab" aria-controls="pane-hooks" aria-selected="false" tabindex="-1">Claude Code</button>
+    <button class="tab" id="tab-about" role="tab" aria-controls="pane-about" aria-selected="false" tabindex="-1">About</button>
+  </nav>
+
+  <!-- ---- the panes --------------------------------------------------------------------- -->
+  <main id="main">
+    <div id="strip"></div>
+
+    <!-- APPEARANCE / Taskbar icon ------------------------------------------------------- -->
+    <section class="pane" id="pane-tray" role="tabpanel" aria-labelledby="tab-tray" tabindex="0" hidden>
+      <h1 class="p-title">Taskbar icon</h1>
+      <p class="p-lede">The small icon down by the clock. Codenotch draws your usage straight into it — 32 pixels square. Pick a layout, then click a part of the picture to choose what that part shows.</p>
+
+      <div class="block first">
+        <div class="b-head">Layout</div>
+        <div class="b-sub">What gets drawn into those 32 pixels.</div>
+        <div class="modes" id="modes"></div>
+
+        <div class="previewrow">
+          <div id="canvas">
+            <img id="pv" alt="Tray icon preview">
+            <div id="ph">
+              <div class="ph-mark"><img data-logo src="tray.png" alt="Codenotch"></div>
+              <div class="c-note dim">The plain Codenotch logo is used.<br>No numbers are drawn.</div>
+            </div>
+            <div id="regions"></div>
+          </div>
+          <div class="truth">
+            <div class="c-title" style="font-size:12px">Actual size</div>
+            <div class="c-sub">This is how big it really is in the taskbar.</div>
+            <div class="truthstrip" id="truthstrip"></div>
+            <div class="c-note dim" style="margin-top:6px">Windows picks one of these depending on the display. If a number is unreadable here, it will be unreadable in the taskbar.</div>
+          </div>
+        </div>
+
+        <div class="chips" id="chips"></div>
+      </div>
+
+      <div class="block">
+        <div class="b-head">What each part shows</div>
+        <div class="b-sub">Pick the tool, then the usage window you want drawn there.</div>
+        <div class="picker" id="picker"></div>
+      </div>
+    </section>
+
+    <!-- APPEARANCE / Notch ---------------------------------------------------------------- -->
+    <section class="pane" id="pane-notch" role="tabpanel" aria-labelledby="tab-notch" tabindex="0" hidden>
+      <h1 class="p-title">Notch</h1>
+      <p class="p-lede">The small black pill that floats against the right-hand edge of the screen. Each tool you tick gets one ring on it.</p>
+
+      <div class="block first">
+        <div class="b-head">What appears on the pill</div>
+        <div class="b-sub">Click a name to switch its ring on or off. The list underneath each name chooses which usage window that ring counts.</div>
+        <div class="np-list" id="notch-list"></div>
+        <div class="c-note dim" id="notch-note" style="margin-top:6px"></div>
+      </div>
+
+      <div class="block">
+        <div class="b-head">Size</div>
+        <div class="b-sub">How big the pill is drawn. The same slider sits at the foot of the pill's hover card, so it can be changed from either place.</div>
+        <div class="c-scale">
+          <input id="scale-range" type="range" min="40" max="100" step="5" value="100" aria-label="Notch size">
+          <span class="c-scale-val" id="scale-val">100%</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="c-note dim">Whether the pill is on screen at all is a separate switch, under General &rarr; Behaviour.</div>
+      </div>
+    </section>
+
+    <!-- GENERAL / Behaviour ---------------------------------------------------------------- -->
+    <section class="pane" id="pane-behaviour" role="tabpanel" aria-labelledby="tab-behaviour" tabindex="0" hidden>
+      <h1 class="p-title">Behaviour</h1>
+      <p class="p-lede">When Codenotch runs, and what it puts on your screen.</p>
+
+      <div class="block first">
+        <div class="b-head">Starting up</div>
+        <div class="row">
+          <div class="r-text">
+            <div class="r-name">Start with Windows</div>
+            <div class="r-why">Codenotch opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Codenotch yourself.</div>
+          </div>
+          <div class="r-ctl"><button class="sw" id="sw-autostart" role="switch" aria-checked="false" aria-label="Start with Windows"><span class="knob"></span></button></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="b-head">What is on screen</div>
+        <div class="b-sub">One of these two always stays on. If you hide the notch, the taskbar icon is held on for you, because with both of them gone there would be nothing left to click and no way back to this window.</div>
+        <div class="row">
+          <div class="r-text">
+            <div class="r-name">Show the notch</div>
+            <div class="r-why">The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Codenotch keeps counting your usage either way.</div>
+          </div>
+          <div class="r-ctl"><button class="sw" id="sw-notch" role="switch" aria-checked="true" aria-label="Show the notch"><span class="knob"></span></button></div>
+        </div>
+        <div class="row">
+          <div class="r-text">
+            <div class="r-name">Show the taskbar icon</div>
+            <div class="r-why">The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Codenotch.</div>
+            <div class="c-note dim" id="tray-lock" style="margin-top:6px" hidden>Held on: the notch is hidden, so this icon is the only way left to reach Codenotch. Switch the notch back on first if you want to hide it.</div>
+          </div>
+          <div class="r-ctl"><button class="sw" id="sw-tray" role="switch" aria-checked="true" aria-label="Show the taskbar icon"><span class="knob"></span></button></div>
+        </div>
+        <div class="fix" id="flags-fix" hidden></div>
+      </div>
+
+      <div class="block">
+        <div class="b-head">Language</div>
+        <div class="row">
+          <div class="r-text">
+            <div class="r-name">Words used by Codenotch</div>
+            <div class="r-why">Sets the language of the taskbar icon&#39;s right-click menu, which is the only part of Codenotch that is translated: its three items. The notch, its hover card and this settings window are English only. &quot;Follow system&quot; uses whatever language Windows itself is set to.</div>
+          </div>
+          <div class="r-ctl">
+            <select id="lang" aria-label="Language">
+              <option value="auto">Follow system</option>
+              <option value="en">English</option>
+              <option value="zh">&#20013;&#25991;</option>
+              <option value="ja">&#26085;&#26412;&#35486;</option>
+              <option value="ko">&#54620;&#44397;&#50612;</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GENERAL / Claude Code -------------------------------------------------------------- -->
+    <section class="pane" id="pane-hooks" role="tabpanel" aria-labelledby="tab-hooks" tabindex="0" hidden>
+      <h1 class="p-title">Claude Code</h1>
+      <p class="p-lede">Claude Code can tell Codenotch the moment something happens in a session, instead of Codenotch having to guess from files on disk.</p>
+
+      <div class="block first">
+        <div class="b-head">Session messages</div>
+        <div class="row">
+          <div class="r-text">
+            <div class="r-name">Let Claude Code notify Codenotch</div>
+            <div class="r-why">Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Codenotch a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.</div>
+          </div>
+          <div class="r-ctl"><button class="sw" id="sw-hooks" role="switch" aria-checked="false" aria-label="Let Claude Code notify Codenotch"><span class="knob"></span></button></div>
+        </div>
+        <div class="c-note dim" style="margin-top:10px">
+          The file being changed is <span style="user-select:text">.claude\settings.json</span> in your user folder. A dated copy of it is saved before anything is written, and turning this switch off takes the lines out again. Any hooks you added yourself are left alone.
+        </div>
+      </div>
+    </section>
+
+    <!-- GENERAL / About ---------------------------------------------------------------------- -->
+    <section class="pane" id="pane-about" role="tabpanel" aria-labelledby="tab-about" tabindex="0" hidden>
+      <h1 class="p-title">About</h1>
+      <p class="p-lede">What this copy of Codenotch is, and where it keeps its files.</p>
+
+      <div class="block first">
+        <div class="about-top">
+          <img class="about-mark" data-logo src="tray.png" alt="Codenotch">
+          <div>
+            <div class="about-name">Codenotch</div>
+            <div class="about-ver">Version <span id="about-version">0.3.0</span></div>
+          </div>
+        </div>
+        <div class="c-note dim" style="margin-top:10px">Shows how much of your Claude, Codex, Cursor and Antigravity allowance you have used, in the taskbar icon and in a pill at the edge of the screen.</div>
+      </div>
+
+      <div class="block">
+        <div class="b-head">Files</div>
+        <div class="row">
+          <div class="r-text">
+            <div class="r-name">Data folder</div>
+            <div class="r-why">Everything Codenotch remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in File Explorer.</div>
+            <div class="path">%APPDATA%\codenotch</div>
+          </div>
+          <div class="r-ctl"><button class="btn" id="btn-data">Open folder</button></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="b-head">If something looks wrong</div>
+        <div class="row">
+          <div class="r-text">
+            <div class="r-name">Put the notch back</div>
+            <div class="r-why">The pill can be dragged up and down the right-hand edge. If it has ended up somewhere you cannot see it — off the bottom of a screen you have unplugged, say — this drops it back into the middle of the edge.</div>
+          </div>
+          <div class="r-ctl"><button class="btn" id="btn-resetpos">Reset position</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="toast">Saved</div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Codenotch settings.
+
+   Layout: a fixed list of tabs on the left, one pane visible at a time on the
+   right. The panes all exist in the DOM at once and are only hidden, so every
+   renderer below can address its elements whether or not its tab is showing.
+
+   Every value on screen comes from a Rust command and is written back by one.
+   Every call is wrapped so a failure paints the strip at the top instead of
+   leaving a half-rendered window.
+--------------------------------------------------------------------------- */
+
+const BRIDGE = (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) || null;
+function invoke(cmd, args){
+  if(!BRIDGE) return Promise.reject(new Error('the app bridge is not available'));
+  return BRIDGE(cmd, args);
+}
+function errText(e){ return (e && (e.message || e.toString())) || String(e); }
+/* Every command goes through here: a rejection shows in the strip and resolves to a fallback,
+   so no caller ever has to deal with an exception. */
+function call(cmd, args, fallback){
+  return invoke(cmd, args).catch(e => { strip(cmd + ' failed: ' + errText(e)); return fallback; });
+}
+
+/* Escapes everything that is interpolated into innerHTML. Provider and window labels arrive from
+   remote servers, so they are never trusted. */
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
+  ));
+}
+
+/* The three usage bands, byte-for-byte the ones trayicon.rs paints, so a dot in the picker is the
+   same colour as the pixels in the preview. They are the only saturated colours in this window. */
+function band(p){ return p < 50 ? '#4ade80' : p < 80 ? '#facc15' : '#f87171'; }
+
+/* Fallback names, used only until get_tray_options answers (or if it never does). */
+const ORDER = ['claude', 'codex', 'cursor', 'gemini'];
+const FALLBACK_LABEL = { claude:'Claude', codex:'Codex', cursor:'Cursor', gemini:'Antigravity' };
+const STATUS_TEXT = {
+  ok:'', stale:'last reading is old', needsAuth:'not signed in',
+  absent:'not installed', none:'nothing to report', error:'not reachable'
+};
+const MAX_BARS = 5, NUMBER_SLOTS = 2;
+
+let options = [];                        // [{id,label,status,windows:[{id,label,used}]}]
+let cfg = { mode:'off', slots:[] };      // the live tray configuration
+let sel = 0;                             // which slot the picker is editing
+let previewToken = 0;                    // guards against a slow preview overwriting a newer one
+let scalePct = 100, scaleTimer = null;
+let repairNote = '';                     // set when a saved slot had to be repaired
+
+/* ---- small chrome ------------------------------------------------------ */
+function strip(msg){
+  const el = document.getElementById('strip');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._h);
+  el._h = setTimeout(() => el.classList.remove('show'), 10000);
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg || 'Saved';
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), 1200);
+}
+
+/* ---- the tabs -----------------------------------------------------------
+   One pane visible at a time. The chosen tab is remembered in localStorage, so reopening the
+   window comes back to where the user was. localStorage can throw in a locked-down WebView, so
+   both the read and the write are wrapped. */
+const TABS = ['tray', 'notch', 'behaviour', 'hooks', 'about'];
+const TAB_KEY = 'codenotch.settings.tab';
+let curTab = TABS[0];
+
+function showTab(id, moveFocus){
+  if(TABS.indexOf(id) < 0) id = TABS[0];
+  curTab = id;
+  for(const t of TABS){
+    const btn = document.getElementById('tab-' + t);
+    const pane = document.getElementById('pane-' + t);
+    const on = (t === id);
+    if(btn){
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      btn.tabIndex = on ? 0 : -1;      // one stop in the tab order; the arrows move within the list
+    }
+    if(pane) pane.hidden = !on;
+  }
+  const main = document.getElementById('main');
+  if(main) main.scrollTop = 0;
+  try { localStorage.setItem(TAB_KEY, id); } catch(e) { /* private mode: the tab simply is not remembered */ }
+  if(moveFocus){
+    const btn = document.getElementById('tab-' + id);
+    if(btn) btn.focus();
+  }
+}
+function savedTab(){
+  try {
+    const v = localStorage.getItem(TAB_KEY);
+    return TABS.indexOf(v) >= 0 ? v : TABS[0];
+  } catch(e) { return TABS[0]; }
+}
+document.getElementById('side').addEventListener('click', e => {
+  const b = e.target.closest('.tab');
+  if(b) showTab(b.id.slice(4));          // "tab-notch" -> "notch"
+});
+/* Up and down move between tabs while the list has focus; Home and End jump to the ends. */
+document.getElementById('side').addEventListener('keydown', e => {
+  const at = TABS.indexOf(curTab);
+  let next = -1;
+  if(e.key === 'ArrowDown' || e.key === 'ArrowRight') next = (at + 1) % TABS.length;
+  else if(e.key === 'ArrowUp' || e.key === 'ArrowLeft') next = (at - 1 + TABS.length) % TABS.length;
+  else if(e.key === 'Home') next = 0;
+  else if(e.key === 'End') next = TABS.length - 1;
+  if(next < 0) return;
+  e.preventDefault();
+  showTab(TABS[next], true);
+});
+
+/* ---- the application mark ----------------------------------------------
+   The shipped icon is a pure black glyph on transparency. That is right for a light taskbar and
+   invisible on a dark one, and this window is dark too — so the bundled `tray.png` is only the
+   fallback. Rust is asked first for the same mark tinted for the current taskbar, which is exactly
+   what the taskbar itself will show. `data-fixed` stops a failing fallback from looping. */
+let logoUrl = null, logoAsked = false;
+function logoFallback(img){
+  if(img.dataset.fixed) return;
+  if(logoUrl){ img.dataset.fixed = '1'; img.src = logoUrl; return; }
+  if(logoAsked) return;
+  logoAsked = true;
+  call('get_app_icon', undefined, null).then(u => {
+    if(typeof u !== 'string' || u.indexOf('data:image/') !== 0) return;
+    logoUrl = u;
+    for(const el of document.querySelectorAll('img[data-logo]')){
+      if(!el.dataset.fixed && el.naturalWidth === 0){ el.dataset.fixed = '1'; el.src = u; }
+    }
+  });
+}
+/* Fetched at start-up, not only when an image fails: the bundled file loads perfectly well, it
+   simply cannot be seen, and a load event is no help against that. */
+(function tintedLogo(){
+  logoAsked = true;
+  call('get_app_icon', undefined, null).then(u => {
+    if(typeof u !== 'string' || u.indexOf('data:image/') !== 0) return;
+    logoUrl = u;
+    for(const el of document.querySelectorAll('img[data-logo]')){
+      el.dataset.fixed = '1';
+      el.src = u;
+    }
+  });
+})();
+(function wireLogos(){
+  for(const img of document.querySelectorAll('img[data-logo]')){
+    img.addEventListener('error', () => logoFallback(img));
+    if(img.complete && img.naturalWidth === 0) logoFallback(img);   // it failed before we got here
+  }
+})();
+
+/* ---- provider / window lookups ----------------------------------------- */
+function provOf(id){ return options.find(o => o.id === id) || null; }
+function provLabel(id){
+  const p = provOf(id);
+  return (p && p.label) || FALLBACK_LABEL[id] || id;
+}
+function winsOf(id){
+  const p = provOf(id);
+  return (p && Array.isArray(p.windows)) ? p.windows : [];
+}
+function winLabel(pid, wid){
+  if(!wid) return 'Whichever is fullest';
+  const w = winsOf(pid).find(x => x.id === wid);
+  return w ? w.label : wid;
+}
+/* THE one source of truth for who the providers are: whatever get_tray_options answered, and the
+   fallback names only until it does. The tray picker and the Notch section both read this list, so
+   a provider is never named twice in this file. */
+function providerList(){
+  return options.length
+    ? options
+    : ORDER.map(id => ({ id, label:FALLBACK_LABEL[id], status:'', windows:[] }));
+}
+/* The one place a status code turns into words ("not signed in"), shared for the same reason. */
+function statusText(p){
+  return STATUS_TEXT[p.status] !== undefined ? STATUS_TEXT[p.status] : String((p && p.status) || '');
+}
+
+/* Which provider to reach for when a slot has to be invented or repaired: one that is actually
+   reporting windows first, then one that is at least healthy, then anything. */
+function pickProvider(taken){
+  const pool = providerList();
+  const rank = o => {
+    const has = o.windows && o.windows.length ? 0 : 2;
+    const ok = o.status === 'ok' ? 0 : 1;
+    return has + ok;
+  };
+  const free = pool.filter(o => taken.indexOf(o.id) < 0);
+  const list = (free.length ? free : pool).slice().sort((a, b) => rank(a) - rank(b));
+  return list.length ? list[0].id : 'claude';
+}
+function defaultSlot(existing){
+  return { provider: pickProvider(existing.map(s => s.provider)), window: '' };
+}
+
+/* ---- configuration repair ----------------------------------------------
+   A saved slot can point at a provider that no longer exists, or at a window id a provider has
+   stopped reporting. Both fall back to "whichever is fullest" rather than breaking the icon.
+   One deliberate exception: when a provider reports NO windows at all (not signed in, say), the
+   stored window id is left alone — it is not evidence the choice is wrong, and throwing it away
+   would quietly lose the user's preference while they are signed out. */
+function fixSlot(s, notes){
+  if(!s || typeof s !== 'object' || typeof s.provider !== 'string' || !s.provider){
+    return { provider: pickProvider([]), window: '' };
+  }
+  const provider = s.provider;
+  let win = typeof s.window === 'string' ? s.window : '';   // not named `window`: that is the global
+  if(options.length && !provOf(provider)){
+    notes.push('"' + provider + '" is no longer available');
+    return { provider: pickProvider([]), window: '' };
+  }
+  const wins = winsOf(provider);
+  if(win && win !== 'top' && wins.length && !wins.some(w => w.id === win)){
+    notes.push(provLabel(provider) + ' no longer reports "' + win + '"');
+    win = '';
+  }
+  if(win === 'top') win = '';   // the Rust side treats "top" as "fullest"; store the plain form
+  return { provider: provider, window: win };
+}
+function normalize(){
+  if(['numbers', 'bars', 'off'].indexOf(cfg.mode) < 0) cfg.mode = 'off';
+  const notes = [];
+  let slots = Array.isArray(cfg.slots) ? cfg.slots.map(s => fixSlot(s, notes)) : [];
+  if(cfg.mode === 'numbers'){
+    while(slots.length < NUMBER_SLOTS) slots.push(defaultSlot(slots));   // pad
+    slots = slots.slice(0, NUMBER_SLOTS);                               // or trim
+  } else {
+    if(!slots.length) slots.push(defaultSlot(slots));                   // never empty
+    slots = slots.slice(0, MAX_BARS);
+  }
+  cfg.slots = slots;
+  if(sel >= cfg.slots.length) sel = cfg.slots.length - 1;
+  if(sel < 0) sel = 0;
+  repairNote = notes.length ? notes[0] + ' — that slot now shows whichever window is fullest.' : '';
+}
+
+/* ---- saving ------------------------------------------------------------ */
+function payload(){
+  return { mode: cfg.mode, slots: cfg.slots.map(s => ({ provider:s.provider, window:s.window })) };
+}
+function persist(quiet){
+  invoke('set_tray_config', { cfg: payload() })
+    .then(() => { if(!quiet) toast('Saved'); })
+    .catch(e => strip('set_tray_config failed: ' + errText(e)));
+}
+
+/* ---- preview ------------------------------------------------------------
+   The picture comes from Rust, so what is being edited is literally the pixels the taskbar will
+   draw. Mode "off" answers null: the placeholder shows the real application mark instead. */
+function refreshPreview(){
+  const img = document.getElementById('pv');
+  const ph = document.getElementById('ph');
+  if(cfg.mode === 'off'){
+    img.classList.add('hide');
+    ph.classList.add('show');
+    setTruth(null);
+    return;
+  }
+  const token = ++previewToken;
+  call('get_tray_preview', { cfg: payload() }, null).then(url => {
+    if(token !== previewToken) return;                       // a newer request already answered
+    if(typeof url === 'string' && url.indexOf('data:image/') === 0){
+      img.src = url;
+      img.classList.remove('hide');
+      ph.classList.remove('show');
+      setTruth(url);
+    } else {
+      img.classList.add('hide');
+      ph.classList.add('show');
+      setTruth(null);
+    }
+  });
+}
+function setTruth(url){
+  for(const im of document.querySelectorAll('.truthcell img')){
+    if(url){ im.src = url; im.classList.remove('hide'); }
+    else { im.classList.add('hide'); }
+  }
+}
+
+/* ---- clickable regions --------------------------------------------------
+   The overlays copy trayicon.rs's own arithmetic so a region sits exactly over the pixels it
+   edits. Digits: two bands of 16 rows. Columns: one pixel of gap, the remainder centred. */
+function barRegions(n){
+  const S = 32, gap = n > 1 ? 1 : 0;
+  const col = Math.floor((S - gap * (n - 1)) / n);
+  if(col <= 0) return [];
+  const used = col * n + gap * (n - 1);
+  const ox = Math.floor((S - used) / 2);
+  const out = [];
+  for(let i = 0; i < n; i++){
+    out.push({ left: (ox + i * (col + gap)) / S * 100, top: 0, width: col / S * 100, height: 100 });
+  }
+  return out;
+}
+function regionBoxes(){
+  if(cfg.mode === 'numbers'){
+    return [ { left:0, top:0, width:100, height:50 }, { left:0, top:50, width:100, height:50 } ];
+  }
+  if(cfg.mode === 'bars') return barRegions(cfg.slots.length);
+  return [];
+}
+function slotName(i){
+  if(cfg.mode === 'numbers') return i === 0 ? 'Top half' : 'Bottom half';
+  return 'Column ' + (i + 1);
+}
+
+function renderRegions(){
+  const host = document.getElementById('regions');
+  const boxes = regionBoxes();
+  let html = '';
+  boxes.forEach((b, i) => {
+    html += '<button class="region' + (i === sel ? ' on' : '') + '" data-i="' + i + '"'
+      + ' style="left:' + b.left.toFixed(3) + '%;top:' + b.top + '%;width:' + b.width.toFixed(3) + '%;height:' + b.height + '%"'
+      + ' title="' + esc(slotName(i) + ': ' + provLabel(cfg.slots[i].provider) + ' — ' + winLabel(cfg.slots[i].provider, cfg.slots[i].window)) + '"'
+      + ' aria-label="' + esc(slotName(i)) + '" aria-pressed="' + (i === sel) + '">'
+      + '<span class="r-num">' + (i + 1) + '</span></button>';
+  });
+  host.innerHTML = html;
+}
+
+/* ---- mode switch ------------------------------------------------------- */
+const MODES = [
+  { id:'numbers', name:'Numbers', sub:'two readings' },
+  { id:'bars', name:'Bars', sub:'1 to 5 columns' },
+  { id:'off', name:'Plain icon', sub:'just the logo' }
+];
+function renderModes(){
+  document.getElementById('modes').innerHTML = MODES.map(m =>
+    '<button class="mode' + (cfg.mode === m.id ? ' on' : '') + '" data-m="' + m.id + '">'
+    + esc(m.name) + '<span class="mode-sub">' + esc(m.sub) + '</span></button>'
+  ).join('');
+}
+function setMode(mode){
+  if(cfg.mode === mode) return;
+  cfg.mode = mode;
+  normalize();          // numbers gets exactly 2 slots, bars at least 1, never empty
+  sel = 0;
+  render();
+  persist();
+}
+
+/* ---- slot chips (the regions again, as text) --------------------------- */
+function renderChips(){
+  const host = document.getElementById('chips');
+  if(cfg.mode === 'off'){ host.innerHTML = ''; return; }
+  let html = '';
+  cfg.slots.forEach((s, i) => {
+    const text = provLabel(s.provider) + ' · ' + winLabel(s.provider, s.window);
+    html += '<span class="chip' + (i === sel ? ' on' : '') + '" data-chip="' + i + '" role="button" tabindex="0">'
+      + '<b>' + esc(slotName(i)) + '</b><span class="ctext">' + esc(text) + '</span>'
+      + (cfg.mode === 'bars' && cfg.slots.length > 1
+        ? '<button class="chip-x" data-del="' + i + '" title="Remove this column" aria-label="Remove column ' + (i + 1) + '">&times;</button>'
+        : '')
+      + '</span>';
+  });
+  if(cfg.mode === 'bars' && cfg.slots.length < MAX_BARS){
+    html += '<button class="chip chip-add" data-add="1">+ Add column</button>';
+  }
+  host.innerHTML = html;
+}
+
+/* ---- the picker -------------------------------------------------------- */
+function renderPicker(){
+  const host = document.getElementById('picker');
+  if(cfg.mode === 'off'){
+    host.innerHTML = '<div class="c-note dim">The taskbar icon shows the plain Codenotch logo. '
+      + 'Choose Numbers or Bars above to draw your usage into it.</div>';
+    return;
+  }
+  const cur = cfg.slots[sel] || { provider:'', window:'' };
+  let html = '<div class="p-head">Showing in <b>' + esc(slotName(sel)) + '</b>: '
+    + esc(provLabel(cur.provider) + ' — ' + winLabel(cur.provider, cur.window)) + '</div>';
+  if(repairNote) html += '<div class="c-note dim" style="margin-bottom:8px">' + esc(repairNote) + '</div>';
+
+  const list = providerList();
+
+  for(const p of list){
+    const st = statusText(p);
+    html += '<div class="p-prov"><div class="p-prov-head"><span class="p-prov-name">' + esc(p.label || p.id) + '</span>'
+      + (st ? '<span class="p-status warn">' + esc(st) + '</span>' : '') + '</div>';
+
+    // Always first, always available: the choice that survives a provider changing its windows.
+    const anyOn = cur.provider === p.id && !cur.window;
+    html += '<button class="p-item' + (anyOn ? ' on' : '') + '" data-p="' + esc(p.id) + '" data-w="">'
+      + '<span class="p-tick">' + (anyOn ? '&#10003;' : '') + '</span>'
+      + '<span class="p-label p-any">Whichever is fullest</span></button>';
+
+    const wins = Array.isArray(p.windows) ? p.windows : [];
+    if(!wins.length){
+      html += '<div class="p-empty">No windows reported'
+        + (st ? ' — ' + esc(st) + '.' : '.')
+        + ' "Whichever is fullest" starts working as soon as it reports one.</div>';
+    }
+    for(const w of wins){
+      const on = cur.provider === p.id && cur.window === w.id;
+      const pct = (typeof w.used === 'number' && isFinite(w.used)) ? Math.round(w.used) : null;
+      html += '<button class="p-item' + (on ? ' on' : '') + '" data-p="' + esc(p.id) + '" data-w="' + esc(w.id) + '">'
+        + '<span class="p-tick">' + (on ? '&#10003;' : '') + '</span>'
+        + '<span class="p-label">' + esc(w.label || w.id) + '</span>'
+        + (pct === null ? ''
+          : '<span class="p-pct"><span class="p-dot" style="background:' + band(pct) + '"></span>' + pct + '%</span>')
+        + '</button>';
+    }
+    html += '</div>';
+  }
+  host.innerHTML = html;
+}
+
+function chooseSlot(provider, winId){
+  if(!cfg.slots[sel]) return;
+  cfg.slots[sel] = { provider: provider, window: winId || '' };
+  repairNote = '';          // the user has now made a deliberate choice; the repair notice is spent
+  render();
+  refreshPreview();
+  persist();
+}
+
+/* ---- render + wiring --------------------------------------------------- */
+function render(){
+  renderModes();
+  renderRegions();
+  renderChips();
+  renderPicker();
+  renderNotch();    // shares the provider list, so it follows the same refresh
+  refreshPreview(); // the picture is part of the state; without this it only moved on the timer
+}
+
+document.getElementById('modes').addEventListener('click', e => {
+  const b = e.target.closest('.mode');
+  if(b) setMode(b.dataset.m);
+});
+document.getElementById('regions').addEventListener('click', e => {
+  const b = e.target.closest('.region');
+  if(!b) return;
+  sel = Number(b.dataset.i) || 0;
+  render();
+});
+document.getElementById('chips').addEventListener('click', e => {
+  const del = e.target.closest('[data-del]');
+  if(del){
+    const i = Number(del.dataset.del);
+    if(cfg.slots.length > 1){
+      cfg.slots.splice(i, 1);
+      if(sel >= cfg.slots.length) sel = cfg.slots.length - 1;
+      render(); refreshPreview(); persist();
+    }
+    return;
+  }
+  if(e.target.closest('[data-add]')){
+    if(cfg.slots.length < MAX_BARS){
+      cfg.slots.push(defaultSlot(cfg.slots));
+      sel = cfg.slots.length - 1;
+      render(); refreshPreview(); persist();
+    }
+    return;
+  }
+  const chip = e.target.closest('[data-chip]');
+  if(chip){ sel = Number(chip.dataset.chip) || 0; render(); }
+});
+document.getElementById('chips').addEventListener('keydown', e => {
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const chip = e.target.closest('[data-chip]');
+  if(chip){ e.preventDefault(); sel = Number(chip.dataset.chip) || 0; render(); }
+});
+document.getElementById('picker').addEventListener('click', e => {
+  const b = e.target.closest('.p-item');
+  if(b) chooseSlot(b.dataset.p, b.dataset.w);
+});
+
+/* ---- the notch's rings --------------------------------------------------
+   The pill at the edge of the screen draws one ring per provider. What is saved is a list of
+   {provider, window} slots, exactly the shape the tray icon uses, so the two settings read alike.
+   An EMPTY list means "every provider, each showing whichever of its windows is fullest" — the
+   default, and the behaviour Codenotch has always had. An empty `window` on a slot means the same
+   fullest rule for that one provider. */
+let notchSlots = [];       // exactly what is stored: [] = all of them, all on "fullest"
+
+/* The effective slots, resolved against the providers that actually exist. A saved list that
+   matches none of them is treated as "all" — the same fallback notch.html makes — so the pill is
+   never drawn empty because of a stale name. */
+function notchOn(){
+  const ids = providerList().map(p => p.id);
+  if(!notchSlots.length) return ids.map(id => ({ provider:id, window:'' }));
+  const on = notchSlots.filter(sl => sl && ids.indexOf(sl.provider) >= 0);
+  return on.length ? on : ids.map(id => ({ provider:id, window:'' }));
+}
+function notchSlotOf(id){
+  for(const sl of notchOn()){ if(sl.provider === id) return sl; }
+  return null;
+}
+
+function renderNotch(){
+  const host = document.getElementById('notch-list');
+  const note = document.getElementById('notch-note');
+  if(!host || !note) return;
+  const list = providerList();
+  const on = notchOn();
+  let html = '';
+  for(const p of list){
+    const sl = notchSlotOf(p.id);
+    const ticked = !!sl;
+    const only = ticked && on.length === 1;     // the last one standing: it cannot be unticked
+    const st = statusText(p);                   // the tray picker's words: "not signed in", etc.
+    html += '<div class="np-row">'
+      + '<button class="p-item' + (ticked ? ' on' : '') + (only ? ' lock' : '') + '"'
+      + ' data-np="' + esc(p.id) + '" role="checkbox" aria-checked="' + ticked + '">'
+      + '<span class="p-tick">' + (ticked ? '&#10003;' : '') + '</span>'
+      + '<span class="p-label">' + esc(p.label || p.id) + '</span>'
+      + '<span class="np-right">'
+      + (st ? '<span class="p-status warn">' + esc(st) + '</span>' : '')
+      + (only ? '<span class="np-lock">kept</span>' : '')
+      + '</span></button>';
+    // The window picker only means anything for a ring that is actually drawn
+    let opts = '<option value="">' + esc('Whichever is fullest') + '</option>';
+    for(const w of winsOf(p.id)){
+      const selAttr = (ticked && sl.window === w.id) ? ' selected' : '';
+      const pct = (w.used === null || w.used === undefined) ? '' : '  ' + w.used + '%';
+      opts += '<option value="' + esc(w.id) + '"' + selAttr + '>' + esc(w.label + pct) + '</option>';
+    }
+    html += '<select class="np-win" data-npw="' + esc(p.id) + '"' + (ticked ? '' : ' disabled') + '>'
+      + opts + '</select></div>';
+  }
+  host.innerHTML = html;
+  const shown = on.map(sl => provLabel(sl.provider) + ' · ' + winLabel(sl.provider, sl.window));
+  note.textContent = 'Showing ' + shown.join('   |   ')
+    + '.  One provider always stays ticked, so the pill is never empty.';
+}
+
+/* Everything ticked AND every window left on "fullest" is stored as an EMPTY list, not as four
+   slots. Empty means "all" to the Rust side, so a provider added in a future version turns up on
+   the notch by itself; a list of today's four ids would silently exclude it forever. */
+function saveNotch(next){
+  const ids = providerList().map(p => p.id);
+  const isDefault = next.length === ids.length && next.every(sl => !sl.window);
+  const store = isDefault ? [] : next;
+  const prev = notchSlots;
+  notchSlots = store;
+  renderNotch();
+  invoke('set_notch_slots', { slots: store.map(sl => ({ provider:sl.provider, window:sl.window || '' })) })
+    .then(() => toast('Saved'))
+    .catch(e => {
+      notchSlots = prev;     // nothing was saved, so put it back rather than show a lie
+      renderNotch();
+      strip('set_notch_slots failed: ' + errText(e));
+    });
+}
+
+function toggleNotch(id){
+  const ids = providerList().map(p => p.id);
+  if(ids.indexOf(id) < 0) return;
+  let on = notchOn().slice();
+  const at = on.findIndex(sl => sl.provider === id);
+  if(at >= 0){
+    /* Unticking the last one is refused rather than saved. An empty list means "all" everywhere
+       below this window, so saving one would switch every provider back on — the opposite of what
+       the click asked for. Holding the last tick is the only unambiguous answer. */
+    if(on.length <= 1){ toast('At least one provider stays on the notch'); return; }
+    on.splice(at, 1);
+  } else {
+    on.push({ provider:id, window:'' });
+  }
+  on.sort((a, b) => ids.indexOf(a.provider) - ids.indexOf(b.provider));  // fixed order, not click order
+  saveNotch(on);
+}
+
+function setNotchWindow(id, wid){
+  const on = notchOn().map(sl => sl.provider === id ? { provider:id, window:wid || '' } : sl);
+  saveNotch(on);
+}
+
+document.getElementById('notch-list').addEventListener('click', e => {
+  const b = e.target.closest('[data-np]');
+  if(b) toggleNotch(b.dataset.np);
+});
+document.getElementById('notch-list').addEventListener('change', e => {
+  const box = e.target.closest('[data-npw]');
+  if(box) setNotchWindow(box.dataset.npw, box.value);
+});
+
+/* ---- notch size -------------------------------------------------------- */
+function clampPct(v){
+  const n = Math.round(Number(v));
+  return isFinite(n) ? Math.max(40, Math.min(100, n)) : 100;
+}
+(function wireScale(){
+  const r = document.getElementById('scale-range');
+  const lab = document.getElementById('scale-val');
+  r.addEventListener('input', () => {
+    scalePct = clampPct(r.value);
+    lab.textContent = scalePct + '%';
+    clearTimeout(scaleTimer);        // one save when the drag settles, not one per pixel
+    scaleTimer = setTimeout(() => {
+      invoke('set_scale', { scale: scalePct / 100 })
+        .then(() => toast('Saved'))
+        .catch(e => strip('set_scale failed: ' + errText(e)));
+    }, 150);
+  });
+})();
+
+/* ---- the truth strip (built once) -------------------------------------- */
+(function buildTruth(){
+  document.getElementById('truthstrip').innerHTML = [16, 20, 24].map(px =>
+    '<div class="truthcell"><img width="' + px + '" height="' + px + '" alt="Tray icon at ' + px + ' pixels">'
+    + '<span>' + px + ' px</span></div>'
+  ).join('');
+})();
+
+/* ---- switches ----------------------------------------------------------
+   A switch never shows what was asked for, only what Rust says is true afterwards. */
+function setSwitch(id, on, disabled){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.setAttribute('aria-checked', on ? 'true' : 'false');
+  if(disabled) el.setAttribute('disabled', '');
+  else el.removeAttribute('disabled');
+}
+
+/* ---- what is on screen at all ------------------------------------------
+   Two switches, one command. Hiding both would leave Codenotch running with nothing to click, so
+   the Rust side forces the taskbar icon back on whenever the notch is hidden — and the answer to
+   set_ui_flags says what was ACTUALLY stored. Everything below re-renders from that answer, never
+   from the request, and says so on screen when the two differ. */
+let flags = { notch:true, tray:true }, flagsBusy = false;
+
+function readFlags(v){
+  // Rust answers in snake_case; camelCase is accepted too so a future rename cannot blank the page.
+  const nv = v && (v.notch_visible !== undefined ? v.notch_visible : v.notchVisible);
+  const tv = v && (v.tray_visible !== undefined ? v.tray_visible : v.trayVisible);
+  return { notch: nv !== false, tray: tv !== false };   // anything missing is read as "shown"
+}
+function renderFlags(){
+  setSwitch('sw-notch', flags.notch, flagsBusy);
+  // With the notch hidden the taskbar icon is the last way in, so its switch is held on
+  setSwitch('sw-tray', flags.tray, flagsBusy || !flags.notch);
+  const lock = document.getElementById('tray-lock');
+  if(lock) lock.hidden = flags.notch;
+}
+function saveFlags(wantNotch, wantTray){
+  if(flagsBusy) return;
+  flagsBusy = true;
+  /* While the command is in flight the switches show what was ASKED for, so the click is felt at
+     once, and are locked so a second click cannot race the first. The answer overwrites them. */
+  setSwitch('sw-notch', wantNotch, true);
+  setSwitch('sw-tray', wantTray, true);
+  const fix = document.getElementById('flags-fix');
+  invoke('set_ui_flags', { notchVisible: wantNotch, trayVisible: wantTray })
+    .then(v => {
+      flags = readFlags(v);            // the answer is the truth; the request was only a request
+      const corrected = (flags.notch !== wantNotch) || (flags.tray !== wantTray);
+      if(fix){
+        fix.hidden = !corrected;
+        if(corrected){
+          fix.textContent = 'The taskbar icon has been kept on. With the notch hidden it is the '
+            + 'only way left to open this window or to quit Codenotch, so Codenotch will not let '
+            + 'both of them be switched off at the same time.';
+        }
+      }
+      toast('Saved');
+    })
+    .catch(e => strip('set_ui_flags failed: ' + errText(e)))   // flags untouched: the switches spring back
+    .then(() => { flagsBusy = false; renderFlags(); });
+}
+document.getElementById('sw-notch').addEventListener('click', () => {
+  const el = document.getElementById('sw-notch');
+  if(el.hasAttribute('disabled')) return;
+  saveFlags(!flags.notch, flags.tray);
+});
+document.getElementById('sw-tray').addEventListener('click', () => {
+  const el = document.getElementById('sw-tray');
+  if(el.hasAttribute('disabled')) return;
+  saveFlags(flags.notch, !flags.tray);
+});
+
+/* ---- a boolean that lives in Rust --------------------------------------
+   Start with Windows and the Claude Code hooks work the same way: a command that reads the real
+   state, and a command that changes it AND CAN FAIL (a locked registry, a missing settings file).
+   After every attempt the true state is read back and the switch is drawn from that, so a switch
+   can never sit there showing something that did not happen. */
+function remoteSwitch(id, getCmd, setCmd, label){
+  const el = document.getElementById(id);
+  let value = false, busy = false;
+
+  function refresh(){
+    return call(getCmd, undefined, null).then(v => {
+      if(typeof v === 'boolean') value = v;
+      setSwitch(id, value, busy);
+      return value;
+    });
+  }
+  if(el) el.addEventListener('click', () => {
+    if(busy || el.hasAttribute('disabled')) return;
+    const want = !value;
+    busy = true;
+    setSwitch(id, want, true);            // moves at once so the click is felt, but stays locked
+    invoke(setCmd, { on: want })
+      .catch(e => strip(label + ' could not be changed: ' + errText(e)))
+      .then(() => { busy = false; return refresh(); })
+      .then(() => { if(value === want) toast('Saved'); });
+  });
+  return { refresh: refresh };
+}
+const autoSwitch = remoteSwitch('sw-autostart', 'get_autostart', 'set_autostart', 'Start with Windows');
+const hooksSwitch = remoteSwitch('sw-hooks', 'get_hooks_installed', 'set_hooks_installed', 'The Claude Code messages');
+
+/* ---- language ----------------------------------------------------------- */
+const LANGS = ['auto', 'en', 'zh', 'ja', 'ko'];
+document.getElementById('lang').addEventListener('change', e => {
+  const v = LANGS.indexOf(e.target.value) >= 0 ? e.target.value : 'auto';
+  invoke('set_lang', { lang: v })
+    .then(() => toast('Saved'))
+    .catch(err => strip('set_lang failed: ' + errText(err)));
+});
+
+/* ---- about --------------------------------------------------------------- */
+document.getElementById('btn-data').addEventListener('click', () => {
+  invoke('open_data_dir').catch(e => strip('open_data_dir failed: ' + errText(e)));
+});
+document.getElementById('btn-resetpos').addEventListener('click', () => {
+  invoke('reset_notch_position')
+    .then(() => toast('The notch is back in the middle'))
+    .catch(e => strip('reset_notch_position failed: ' + errText(e)));
+});
+/* The number printed above is the one in tauri.conf.json, kept here so the page works with no
+   command at all. If the window is allowed to ask the application itself, the real number wins. */
+(function realVersion(){
+  const api = window.__TAURI__ && window.__TAURI__.app;
+  const el = document.getElementById('about-version');
+  if(!el || !api || typeof api.getVersion !== 'function') return;
+  try {
+    Promise.resolve(api.getVersion())
+      .then(v => { if(typeof v === 'string' && v) el.textContent = v; })
+      .catch(() => {});         // not permitted for this window: the built-in number stays
+  } catch(e) { /* same */ }
+})();
+
+/* ---- start ------------------------------------------------------------- */
+function boot(){
+  showTab(savedTab());
+  render();   // draw something immediately, even if every command below fails
+
+  Promise.all([
+    call('get_tray_options', undefined, []),
+    call('get_tray_config', undefined, null)
+  ]).then(([opts, saved]) => {
+    options = Array.isArray(opts) ? opts.filter(o => o && typeof o.id === 'string') : [];
+    if(saved && typeof saved === 'object'){
+      cfg = { mode: saved.mode, slots: Array.isArray(saved.slots) ? saved.slots : [] };
+    }
+    normalize();
+    /* If a saved slot had to be repaired, write the repair back at once. Rust draws a dash for a
+       window id it cannot find, so leaving the repair on screen only would show one thing here and
+       another in the taskbar. Saved quietly — the user did not ask for anything yet. */
+    if(repairNote) persist(true);
+    render();
+    refreshPreview();
+  });
+
+  call('get_notch_slots', undefined, []).then(v => {
+    notchSlots = Array.isArray(v)
+      ? v.filter(x => x && typeof x.provider === 'string')
+          .map(x => ({ provider:x.provider, window: typeof x.window === 'string' ? x.window : '' }))
+      : [];
+    renderNotch();
+  });
+
+  call('get_scale', undefined, null).then(v => {
+    const n = Number(v);
+    if(isFinite(n) && n > 0) scalePct = clampPct(Math.round(n * 100));
+    document.getElementById('scale-range').value = String(scalePct);
+    document.getElementById('scale-val').textContent = scalePct + '%';
+  });
+
+  call('get_ui_flags', undefined, null).then(v => {
+    if(v && typeof v === 'object') flags = readFlags(v);
+    renderFlags();
+  });
+
+  call('get_lang', undefined, null).then(v => {
+    const l = (typeof v === 'string' && LANGS.indexOf(v) >= 0) ? v : 'auto';
+    document.getElementById('lang').value = l;
+  });
+
+  autoSwitch.refresh();
+  hooksSwitch.refresh();
+}
+boot();
+
+/* Readings move on their own, so the percentages in the picker and the pixels in the preview are
+   refreshed on a slow timer. Nothing is saved here — this only redraws. */
+setInterval(() => {
+  call('get_tray_options', undefined, null).then(opts => {
+    if(!Array.isArray(opts) || !opts.length) return;
+    options = opts.filter(o => o && typeof o.id === 'string');
+    const before = JSON.stringify(cfg.slots);
+    normalize();
+    if(JSON.stringify(cfg.slots) !== before) persist(true);   // a window disappeared while the window was open
+    render();
+    refreshPreview();
+  });
+}, 30000);
+</script>
+</body>
+</html>

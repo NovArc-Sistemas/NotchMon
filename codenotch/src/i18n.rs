@@ -65,6 +65,36 @@ pub fn tr(lang: &str, key: &str) -> &'static str {
         (_, "hooks_missing") => "Hooks not installed: tray right-click → Install Claude Code hooks (desktop app auto-fallback active)",
         (_, "autostart") => "Start with Windows (silent)",
         (_, "refresh") => "Refresh usage now",
+        ("zh", "settings") => "设置…",
+        ("ja", "settings") => "設定…",
+        ("ko", "settings") => "설정…",
+        (_, "settings") => "Settings…",
+
+        ("zh", "tray_icon") => "托盘图标",
+        ("ja", "tray_icon") => "トレイアイコン",
+        ("ko", "tray_icon") => "트레이 아이콘",
+        (_, "tray_icon") => "Tray icon",
+
+        ("zh", "tray_off") => "默认图标",
+        ("ja", "tray_off") => "既定のアイコン",
+        ("ko", "tray_off") => "기본 아이콘",
+        (_, "tray_off") => "Plain icon",
+
+        ("zh", "tray_numbers") => "数字（最多两项）",
+        ("ja", "tray_numbers") => "数字（最大2件）",
+        ("ko", "tray_numbers") => "숫자 (최대 2개)",
+        (_, "tray_numbers") => "Numbers (up to 2)",
+
+        ("zh", "tray_bars") => "条形图（多项）",
+        ("ja", "tray_bars") => "バー（複数可）",
+        ("ko", "tray_bars") => "막대 (여러 개)",
+        (_, "tray_bars") => "Bars (more than 2)",
+
+        ("zh", "tray_which") => "显示哪些",
+        ("ja", "tray_which") => "対象",
+        ("ko", "tray_which") => "표시 대상",
+        (_, "tray_which") => "Which providers",
+
         _ => "?",
     }
 }

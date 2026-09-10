@@ -22,6 +22,18 @@
         "shadow": false,
         "visible": false,
         "focus": false
+      },
+      {
+        "label": "settings",
+        "title": "Codenotch Settings",
+        "url": "settings.html",
+        "width": 520,
+        "height": 620,
+        "minWidth": 460,
+        "minHeight": 520,
+        "resizable": true,
+        "visible": false,
+        "skipTaskbar": false
       }
     ],
     "security": {
