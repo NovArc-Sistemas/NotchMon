@@ -631,10 +631,14 @@ fn reading_for_slot(app: &AppHandle, slot: &config::TraySlot) -> Option<u32> {
     if slot.window.is_empty() || slot.window == "top" {
         return headline_pct(&snap);
     }
+    // A pinned window missing from this snapshot falls back to the fullest one, which is what the
+    // notch does in the same situation. Without this a provider that renamed or dropped a window
+    // would leave the icon showing a dash while the notch still showed a number.
     snap.windows
         .iter()
         .find(|w| w.id == slot.window && w.count.is_none())
         .map(|w| (w.used * 100.0).round().clamp(0.0, 100.0) as u32)
+        .or_else(|| headline_pct(&snap))
 }
 
 /// One provider and the windows it currently reports, for the settings window's pickers. Built

@@ -129,7 +129,7 @@ let glyphs={}; // id → {kind:'mark'|'appicon', url}
 let activity=[]; // working state of the non-Claude providers: {provider,state:'busy'|'waiting',name,detail,since}
 // Notch size, as a percentage (40…100). Declared here with the rest of the page state so the card
 // renderer can never reference it before it exists.
-let scalePct=100, scaleDragging=false, scaleT=null;
+let scalePct=100, scaleDragging=false, scaleT=null, scaleSaveT=null;
 // "Is it working?" per provider: Claude from the four-state engine, the others from the activity probe. Returns running | attention | idle
 function workState(id){
   if(id==='claude'){
@@ -355,7 +355,10 @@ function applyScale(v){
   scalePct=clampPct(v);
   const lab=document.getElementById('scale-val'); if(lab) lab.textContent=scalePct+'%';
   applyPillScale();                                       // draw it at once; do not wait on Rust
-  invoke('set_scale',{scale:scalePct/100}).catch(()=>{});  // percent → fraction: 60 becomes 0.60
+  // One save when the drag settles, not one per pixel: set_scale writes the config file and
+  // broadcasts an event every time it is called. Same 150ms wait the settings window's slider uses.
+  clearTimeout(scaleSaveT);
+  scaleSaveT=setTimeout(()=>{invoke('set_scale',{scale:scalePct/100}).catch(()=>{});},150); // percent → fraction: 60 becomes 0.60
   // The pill just changed size, so the hot rectangles the watchdog checks are stale
   clearTimeout(scaleT);
   scaleT=setTimeout(()=>{if(card.classList.contains('show')){placeCard();armWatchdog();}},120);

@@ -1,8 +1,7 @@
-use crate::hooks_install;
 use crate::i18n::tr;
 use tauri::menu::{Menu, MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Emitter, Manager, Wry};
+use tauri::{AppHandle, Manager, Wry};
 
 pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let lang = {
@@ -61,23 +60,11 @@ pub fn refresh_menu(app: &AppHandle) {
     });
 }
 
+/// Only the three items build_menu creates. Everything the menu used to offer besides these
+/// (hooks, autostart, language, reset, the data folder, the icon layout) now lives in the settings
+/// window and arrives as a command from there, never as a menu event.
 fn handle(app: &AppHandle, id: &str) {
     match id {
-        "install" => notice(app, hooks_install::install()),
-        "uninstall" => notice(app, hooks_install::uninstall()),
-        "reset" => crate::reset_bar(app),
-        "open-data" => {
-            let dir = crate::config::config_path().parent().map(|p| p.to_path_buf()).unwrap_or_default();
-            let _ = std::fs::create_dir_all(crate::glyphs::user_dir());
-            let mut cmd = std::process::Command::new("explorer");
-            cmd.arg(dir.as_os_str());
-            #[cfg(windows)]
-            {
-                use std::os::windows::process::CommandExt;
-                cmd.creation_flags(0x0800_0000);
-            }
-            let _ = cmd.spawn();
-        }
         "refresh" => {
             {
                 let st = app.state::<crate::AppState>();
@@ -91,42 +78,6 @@ fn handle(app: &AppHandle, id: &str) {
             let a = app.clone();
             std::thread::spawn(move || crate::reload_glyphs(&a));
         }
-        "autostart" => {
-            let r = if crate::autostart::is_enabled() {
-                crate::autostart::disable()
-            } else {
-                crate::autostart::enable()
-            };
-            notice(app, r);
-            refresh_menu(app); // refresh the check marks
-        }
-        "tim-off" | "tim-numbers" | "tim-bars" => {
-            {
-                let st = app.state::<crate::AppState>();
-                let mut c = st.cfg.lock().unwrap();
-                c.tray_mode = id.trim_start_matches("tim-").to_string();
-                crate::config::save(&c);
-            }
-            refresh_menu(app);
-        }
-        _ if id.starts_with("tip-") => {
-            let pid = id.trim_start_matches("tip-").to_string();
-            {
-                let st = app.state::<crate::AppState>();
-                let mut c = st.cfg.lock().unwrap();
-                if let Some(i) = c.tray_providers.iter().position(|x| *x == pid) {
-                    c.tray_providers.remove(i);
-                } else {
-                    // Kept in the notch's own order, so the icon reads the same way the pill does
-                    c.tray_providers.push(pid);
-                    c.tray_providers.sort_by_key(|x| {
-                        crate::TRAY_PROVIDER_IDS.iter().position(|p| p == x).unwrap_or(usize::MAX)
-                    });
-                }
-                crate::config::save(&c);
-            }
-            refresh_menu(app);
-        }
         "settings" => {
             if let Some(w) = app.get_webview_window("settings") {
                 let _ = w.show();
@@ -135,15 +86,6 @@ fn handle(app: &AppHandle, id: &str) {
             }
         }
         "quit" => app.exit(0),
-        _ if id.starts_with("lang-") => crate::apply_lang(app, &id[5..]),
         _ => {}
     }
-}
-
-fn notice(app: &AppHandle, r: Result<String, String>) {
-    let msg = match r {
-        Ok(m) => m,
-        Err(e) => format!("Error: {e}"),
-    };
-    let _ = app.emit("notice", &msg);
 }

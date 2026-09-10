@@ -178,6 +178,12 @@
   .chip b{font-weight:700;white-space:nowrap}
   .chip .ctext{color:#808080;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
   .chip.on .ctext{color:#c8c8c8}
+  /* The chip itself is a plain container. The two things inside it are real buttons side by side,
+     not one nested in the other, so keyboards and screen readers see two distinct controls. */
+  .chip-pick{
+    display:flex;align-items:center;gap:6px;background:none;border:none;color:inherit;font:inherit;
+    cursor:pointer;padding:0;min-width:0;text-align:left;
+  }
   .chip-x{
     background:none;border:none;color:#808080;font:inherit;font-size:12px;line-height:1;cursor:pointer;padding:0 2px;
   }
@@ -805,8 +811,9 @@ function renderChips(){
   let html = '';
   cfg.slots.forEach((s, i) => {
     const text = provLabel(s.provider) + ' · ' + winLabel(s.provider, s.window);
-    html += '<span class="chip' + (i === sel ? ' on' : '') + '" data-chip="' + i + '" role="button" tabindex="0">'
-      + '<b>' + esc(slotName(i)) + '</b><span class="ctext">' + esc(text) + '</span>'
+    html += '<span class="chip' + (i === sel ? ' on' : '') + '">'
+      + '<button class="chip-pick" data-chip="' + i + '" aria-pressed="' + (i === sel) + '">'
+      + '<b>' + esc(slotName(i)) + '</b><span class="ctext">' + esc(text) + '</span></button>'
       + (cfg.mode === 'bars' && cfg.slots.length > 1
         ? '<button class="chip-x" data-del="' + i + '" title="Remove this column" aria-label="Remove column ' + (i + 1) + '">&times;</button>'
         : '')
@@ -915,11 +922,6 @@ document.getElementById('chips').addEventListener('click', e => {
   }
   const chip = e.target.closest('[data-chip]');
   if(chip){ sel = Number(chip.dataset.chip) || 0; render(); }
-});
-document.getElementById('chips').addEventListener('keydown', e => {
-  if(e.key !== 'Enter' && e.key !== ' ') return;
-  const chip = e.target.closest('[data-chip]');
-  if(chip){ e.preventDefault(); sel = Number(chip.dataset.chip) || 0; render(); }
 });
 document.getElementById('picker').addEventListener('click', e => {
   const b = e.target.closest('.p-item');
