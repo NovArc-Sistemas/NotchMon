@@ -28,8 +28,8 @@
 //!      (`{"metadata":{"pluginType":"GEMINI"}}`, not ANTIGRAVITY) for the tier name; then try
 //!      `:retrieveUserQuotaSummary` (empty body `{}`), which is 200 only for licensed accounts, and
 //!      parse it defensively (no positive limit, or used > 1.5×limit → discard).
-//!   4. Fallback: count today's `source=="MODEL"` steps in
-//!      `~/.gemini/antigravity/brain/*/.system_generated/logs/transcript.jsonl` (created_at is UTC,
+//!   4. Fallback: count today's `source=="MODEL"` steps in every install's
+//!      `~/.gemini/antigravity*/brain/*/.system_generated/logs/transcript.jsonl` (created_at is UTC,
 //!      compared by local day). This is a **count, not a percentage** — there is no published
 //!      denominator, so the ring draws only its track.
 //!
@@ -37,7 +37,7 @@
 
 use crate::usage::{LimitWindow, UsageSnapshot};
 use crate::AppState;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
@@ -61,8 +61,23 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
-fn state_root() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".gemini").join("antigravity"))
+/// Every install's state directory — `antigravity`, `antigravity-ide`, `antigravity-cli`, … — not
+/// just the first that exists: switching flavour leaves the old directory behind, so the first can
+/// be empty while the transcripts sit in the next (#84 hit this on macOS).
+pub(crate) fn state_roots() -> Vec<PathBuf> {
+    dirs::home_dir().map(|h| state_roots_in(&h)).unwrap_or_default()
+}
+
+fn state_roots_in(home: &Path) -> Vec<PathBuf> {
+    let Ok(rd) = std::fs::read_dir(home.join(".gemini")) else { return vec![] };
+    let mut out: Vec<PathBuf> = rd
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().starts_with("antigravity"))
+        .map(|e| e.path())
+        .filter(|p| p.is_dir())
+        .collect();
+    out.sort();
+    out
 }
 
 fn store_path() -> PathBuf {
@@ -88,9 +103,9 @@ fn persist(s: &UsageSnapshot) {
     }
 }
 
-/// Is Antigravity installed: the state directory exists, or Credential Manager holds its token
+/// Is Antigravity installed: any state directory exists, or Credential Manager holds its token
 pub fn present() -> bool {
-    state_root().map(|p| p.is_dir()).unwrap_or(false) || read_credential_raw().is_some()
+    !state_roots().is_empty() || read_credential_raw().is_some()
 }
 
 // ---------------- 1. Local bridge ----------------
@@ -421,15 +436,16 @@ fn direct_quota(token: &str) -> Option<Vec<LimitWindow>> {
 
 // ---------------- 4. Fallback count ----------------
 
-/// Today's MODEL steps (UTC timestamps compared by local day)
+/// Today's MODEL steps across every install (UTC timestamps compared by local day)
 pub fn requests_today() -> (u64, Option<u64>) {
-    use chrono::{Datelike, Local, TimeZone};
-    let Some(root) = state_root().map(|r| r.join("brain")) else { return (0, None) };
-    let Ok(rd) = std::fs::read_dir(&root) else { return (0, None) };
-    let today = Local::now().date_naive();
+    requests_in(&state_roots(), chrono::Local::now().date_naive())
+}
+
+fn requests_in(roots: &[PathBuf], today: chrono::NaiveDate) -> (u64, Option<u64>) {
+    use chrono::{Local, TimeZone};
     let mut count = 0u64;
     let mut latest: Option<u64> = None;
-    for e in rd.flatten() {
+    for e in roots.iter().filter_map(|r| std::fs::read_dir(r.join("brain")).ok()).flat_map(|rd| rd.flatten()) {
         let p = e.path().join(".system_generated").join("logs").join("transcript.jsonl");
         let Ok(text) = std::fs::read_to_string(&p) else { continue };
         for line in text.lines() {
@@ -450,7 +466,6 @@ pub fn requests_today() -> (u64, Option<u64>) {
                     count += 1;
                 }
             }
-            let _ = today.year(); // keeps the Datelike import in use
         }
     }
     (count, latest)
@@ -604,14 +619,16 @@ pub fn start(app: AppHandle) {
 
 /// For doctor: contains no secrets
 pub fn probe() -> String {
-    let root = state_root().map(|p| p.display().to_string()).unwrap_or_default();
-    let has_root = state_root().map(|p| p.is_dir()).unwrap_or(false);
+    let roots = state_roots();
     let cred = read_credentials();
     let ep = discover();
     format!(
-        "Antigravity: state dir {} ({}) | Credential Manager gemini:antigravity {} | language_server {}",
-        root,
-        if has_root { "present" } else { "missing" },
+        "Antigravity: state dirs {} | Credential Manager gemini:antigravity {} | language_server {}",
+        if roots.is_empty() {
+            "none under ~/.gemini".to_string()
+        } else {
+            roots.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ")
+        },
         match cred {
             Some(c) => format!("found ({}, {})", c.auth_method, if c.expired { "expired" } else { "valid" }),
             None => "not found".into(),
@@ -621,4 +638,104 @@ pub fn probe() -> String {
             None => "not running".into(),
         }
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{requests_in, state_roots_in};
+    use std::path::{Path, PathBuf};
+
+    struct Home(PathBuf);
+    impl Home {
+        fn new(name: &str) -> Self {
+            let p = std::env::temp_dir().join(format!("codenotch-ag-{}-{name}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&p);
+            std::fs::create_dir_all(p.join(".gemini")).unwrap();
+            Home(p)
+        }
+        fn flavour(&self, name: &str) -> PathBuf {
+            let d = self.0.join(".gemini").join(name);
+            std::fs::create_dir_all(&d).unwrap();
+            d
+        }
+    }
+    impl Drop for Home {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn names(roots: &[PathBuf]) -> Vec<String> {
+        roots.iter().map(|p| p.file_name().unwrap().to_string_lossy().into_owned()).collect()
+    }
+
+    fn trajectory(root: &Path, id: &str, lines: &[String]) {
+        let logs = root.join("brain").join(id).join(".system_generated").join("logs");
+        std::fs::create_dir_all(&logs).unwrap();
+        std::fs::write(logs.join("transcript.jsonl"), lines.join("\n")).unwrap();
+    }
+
+    fn step(source: &str, at: chrono::DateTime<chrono::Utc>) -> String {
+        format!(r#"{{"source":"{source}","created_at":"{}"}}"#, at.to_rfc3339())
+    }
+
+    fn today() -> chrono::NaiveDate {
+        chrono::Local::now().date_naive()
+    }
+
+    #[test]
+    fn no_gemini_directory_means_no_roots() {
+        let missing = std::env::temp_dir().join(format!("codenotch-ag-{}-missing", std::process::id()));
+        assert!(state_roots_in(&missing).is_empty());
+    }
+
+    #[test]
+    fn an_ide_only_install_is_found() {
+        let h = Home::new("ide");
+        h.flavour("antigravity-ide");
+        h.flavour("config");
+        assert_eq!(names(&state_roots_in(&h.0)), ["antigravity-ide"]);
+    }
+
+    #[test]
+    fn the_legacy_layout_still_works() {
+        let h = Home::new("legacy");
+        h.flavour("antigravity");
+        assert_eq!(names(&state_roots_in(&h.0)), ["antigravity"]);
+    }
+
+    #[test]
+    fn every_flavour_is_found_and_nothing_else() {
+        let h = Home::new("all");
+        for f in ["antigravity-cli", "antigravity", "antigravity-ide", "antigravity-backup", "config"] {
+            h.flavour(f);
+        }
+        std::fs::write(h.0.join(".gemini").join("antigravity-notes.txt"), "").unwrap();
+        assert_eq!(
+            names(&state_roots_in(&h.0)),
+            ["antigravity", "antigravity-backup", "antigravity-cli", "antigravity-ide"]
+        );
+    }
+
+    #[test]
+    fn requests_are_summed_across_installs() {
+        let h = Home::new("sum");
+        let now = chrono::Utc::now();
+        let old = now - chrono::TimeDelta::days(3);
+        trajectory(&h.flavour("antigravity-ide"), "a", &[step("MODEL", now), step("USER", now), step("MODEL", old)]);
+        trajectory(&h.flavour("antigravity-cli"), "b", &[step("MODEL", now), step("MODEL", now)]);
+        let (count, latest) = requests_in(&state_roots_in(&h.0), today());
+        assert_eq!(count, 3);
+        assert_eq!(latest, Some(now.timestamp_millis() as u64));
+    }
+
+    #[test]
+    fn an_empty_first_install_does_not_hide_the_next() {
+        // #84's trap: antigravity-ide/brain existed and was empty while the transcripts sat in
+        // antigravity-cli, so "the first that exists" read zero.
+        let h = Home::new("trap");
+        std::fs::create_dir_all(h.flavour("antigravity-ide").join("brain")).unwrap();
+        trajectory(&h.flavour("antigravity-cli"), "c", &[step("MODEL", chrono::Utc::now())]);
+        assert_eq!(requests_in(&state_roots_in(&h.0), today()).0, 1);
+    }
 }
