@@ -133,15 +133,27 @@ const RU_TEXT={
   'API usage':'Использование API',
   'On demand':'По запросу',
   'Usage':'Использование',
+  'Current session':'Текущий сеанс',
+  'Weekly (all models)':'Недельный (все модели)',
+  'Weekly (Opus)':'Недельный (Opus)',
+  'Weekly (model-scoped)':'Недельный (для выбранной модели)',
+  'Weekly limit':'Недельный лимит',
   'Weekly Limit':'Недельный лимит',
   '5-Hour Limit':'Лимит на 5 часов',
+  'Monthly limit':'Месячный лимит',
   'Monthly Limit':'Месячный лимит',
+  'Longer window':'Более длительный период',
   'Requests today · no limit published':'Запросы сегодня · лимит не опубликован',
   'Updated':'Обновлено',
   'Resetting…':'Сброс…',
   'Resets at':'Сброс в',
   'Resets':'Сброс',
   'Used':'Использовано',
+  'Working':'Работа',
+  'Waiting':'Ожидание',
+  'Streaming (network)':'Потоковая передача (сеть)',
+  'Rate limited, retrying in':'Превышен лимит, повтор через',
+  'Rate limited — retrying in':'Превышен лимит — повтор через',
   'request today':'запрос сегодня',
   'requests today':'запросов сегодня',
   'no requests today':'сегодня запросов нет',
@@ -159,13 +171,39 @@ function textCopy(value){
   if(uiLang!=='ru') return value;
   if(RU_TEXT[value]) return RU_TEXT[value];
   return String(value)
+    .replace(/^(\d+)m limit$/,'Лимит на $1 мин')
+    .replace(/^(\d+)h limit$/,'Лимит на $1 ч')
+    .replace(/^(\d+)d limit$/,'Лимит на $1 дн.')
+    .replace(/^Rate limited, retrying in (\d+)s$/,'Превышен лимит, повтор через $1 с')
+    .replace(/^Rate limited — retrying in (\d+)s$/,'Превышен лимит — повтор через $1 с')
+    .replace(/^Unlimited on the (.+) plan — nothing to meter$/,'Безлимитный тариф $1 — нечего измерять')
+    .replace(/^The (.+) plan has nothing for Cursor to meter yet$/,'В тарифе $1 пока нечего измерять Cursor')
+    .replace(/^(.+) · Google publishes no quota for this account$/,'$1 · Google не публикует лимит для этого аккаунта')
+    .replace(/^Live read failed \((.+)\)$/,'Ошибка чтения онлайн-данных ($1)')
+    .replace(/Weekly \(all models\)/g,'Недельный (все модели)')
+    .replace(/Weekly \(Opus\)/g,'Недельный (Opus)')
+    .replace(/Weekly \(model-scoped\)/g,'Недельный (для выбранной модели)')
+    .replace(/Weekly limit/g,'Недельный лимит')
+    .replace(/Monthly limit/g,'Месячный лимит')
+    .replace(/\bWeekly\b/g,'Недельный')
+    .replace(/\bMonthly\b/g,'Месячный')
     .replace(/ · via /g,' · через ')
     .replace(/needs your input/g,'требуется ваш ответ')
     .replace(/^Working in /,'Работает в ')
-    .replace(/No Claude Code credential found/g,'Учётные данные Claude Code не найдены')
     .replace(/via Antigravity CLI/g,'через CLI Antigravity')
     .replace(/via Antigravity/g,'через Antigravity')
     .replace(/via Google/g,'через Google')
+    .replace(/No Claude Code credential found/g,'Учётные данные Claude Code не найдены')
+    .replace(/Credential expired — run any claude command \(or chat with Claude\) to refresh it/g,'Учётные данные истекли — выполните любую команду claude (или начните чат с Claude), чтобы обновить их')
+    .replace(/Credential rejected \(switched accounts\?\)/g,'Учётные данные отклонены (вы сменили аккаунт?)')
+    .replace(/Codex sign-in expired — open Codex once to refresh it/g,'Срок входа в Codex истёк — откройте Codex для обновления')
+    .replace(/Codex rejected its sign-in — sign in to Codex again/g,'Codex отклонил вход — войдите в Codex снова')
+    .replace(/Codex reported no usage windows/g,'Codex не сообщил окна использования')
+    .replace(/Codex has not recorded a usage snapshot yet/g,'Codex ещё не записал снимок использования')
+    .replace(/from last Codex run/g,'из последнего запуска Codex')
+    .replace(/Waiting for Antigravity CLI quota/g,'Ожидание квоты Antigravity CLI')
+    .replace(/Open Antigravity to read its quota/g,'Откройте Antigravity, чтобы получить квоту')
+    .replace(/Antigravity's Google session was rejected — sign in again in Antigravity/g,'Сеанс Google в Antigravity отклонён — войдите в Antigravity снова')
     .replace(/Antigravity is closed — last reading kept/g,'Antigravity закрыт — сохранено последнее показание')
     .replace(/Sign in to Cursor \(the editor\) to see usage\./g,'Войдите в Cursor (редактор), чтобы увидеть использование.')
     .replace(/Cursor session was rejected — sign in again in the editor/g,'Сеанс Cursor отклонён — снова войдите в редакторе');
