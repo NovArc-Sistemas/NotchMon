@@ -6,15 +6,11 @@ use std::path::PathBuf;
 pub const SCALE_MIN: f64 = 0.40;
 pub const SCALE_MAX: f64 = 1.00;
 
-/// One half of the tray icon: which provider, and which of its windows.
-/// `window` is a window id as the provider reports it ("session", "weekly_all", "primary"…), or
-/// the empty string / "top" meaning "whichever of its windows is fullest" — the same rule the
-/// notch ring uses, and the only choice that keeps working when a provider changes its windows.
+/// One half of the tray icon, or one ring on the notch: which provider. It shows that provider's
+/// ring, so the tray and the notch can never disagree. (A `window` key from older builds is ignored.)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TraySlot {
     pub provider: String,
-    #[serde(default)]
-    pub window: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,11 +56,15 @@ pub struct Config {
     /// kept so an existing config migrates cleanly.
     #[serde(default)]
     pub notch_providers: Vec<String>,
-    /// What each ring on the notch shows: the provider, and which of its windows. An empty list
-    /// means every provider, each showing whichever of its windows is fullest — the original
-    /// behaviour. Same shape as the tray slots so the two settings read alike.
+    /// Which providers get a ring on the notch, in order. An empty list means every provider.
     #[serde(default)]
     pub notch_slots: Vec<TraySlot>,
+    /// Antigravity's lane on the ring, as the Mac app's "Notch reads": "automatic", "5h" or "weekly"
+    #[serde(default = "default_antigravity_limit")]
+    pub antigravity_limit: String,
+    /// The model family that choice looks at, as the Mac app's "Model data": "gemini" or "3p"
+    #[serde(default = "default_antigravity_model")]
+    pub antigravity_model: String,
     /// false = the pill is kept off the screen edge entirely; the tray icon is then the only way in
     #[serde(default = "yes")]
     pub notch_visible: bool,
@@ -92,6 +92,12 @@ fn default_tray_mode() -> String {
 fn default_tray_providers() -> Vec<String> {
     vec!["claude".into(), "codex".into()]
 }
+fn default_antigravity_limit() -> String {
+    "automatic".into()
+}
+fn default_antigravity_model() -> String {
+    "gemini".into()
+}
 
 fn default_port() -> u16 {
     48666
@@ -116,6 +122,8 @@ impl Default for Config {
             tray_slots: Vec::new(), // filled in by load(), from tray_providers
             notch_providers: Vec::new(), // empty = show them all
             notch_slots: Vec::new(),     // filled in by load(), from notch_providers
+            antigravity_limit: default_antigravity_limit(),
+            antigravity_model: default_antigravity_model(),
             notch_visible: true,
             tray_visible: true,
         }
@@ -151,24 +159,22 @@ pub fn load() -> Config {
         cfg.tray_mode = "off".into();
     }
 
-    // Migration: before slots existed the icon was a plain provider list, each showing whichever of
-    // its windows was fullest. That is exactly a slot with an empty `window`, so nobody's choice is
-    // lost and nobody has to reconfigure anything.
+    // Migration: before slots existed the icon was a plain provider list, one reading each. That
+    // is exactly a list of slots, so nobody's choice is lost and nobody has to reconfigure anything.
     if cfg.tray_slots.is_empty() {
         cfg.tray_slots = cfg
             .tray_providers
             .iter()
-            .map(|p| TraySlot { provider: p.clone(), window: String::new() })
+            .map(|p| TraySlot { provider: p.clone() })
             .collect();
     }
 
-    // Same migration for the notch: a plain provider list becomes slots that each show whichever
-    // window is fullest, which is exactly what the list used to mean.
+    // Same migration for the notch.
     if cfg.notch_slots.is_empty() {
         cfg.notch_slots = cfg
             .notch_providers
             .iter()
-            .map(|p| TraySlot { provider: p.clone(), window: String::new() })
+            .map(|p| TraySlot { provider: p.clone() })
             .collect();
     }
 
