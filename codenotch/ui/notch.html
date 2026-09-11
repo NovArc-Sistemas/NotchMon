@@ -87,6 +87,8 @@
   .w-track{height:4px;border-radius:2px;background:#2d2d2d;margin:6px 0 4px;overflow:hidden}
   .w-fill{height:100%;border-radius:2px}
   .w-used{font-size:11px;color:#808080}
+  .g-head{font-size:12px;font-weight:700;color:#e8e8ea;margin-top:12px}
+  .g-box{border:1px solid #242424;border-radius:10px;padding:0 10px 8px;margin-top:6px}
   .c-note{font-size:12px;color:#c8c8c8;line-height:1.5;margin-top:6px}
   .c-sessions{margin-top:12px;border-top:1px solid #1e1e1e;padding-top:8px}
   .s-row{display:flex;align-items:center;gap:6px;font-size:11px;color:#b0b0b3;padding:2px 0}
@@ -140,6 +142,9 @@ const RU_TEXT={
   'Weekly limit':'Недельный лимит',
   'Weekly Limit':'Недельный лимит',
   '5-Hour Limit':'Лимит на 5 часов',
+  '5-hour Limit':'Лимит на 5 часов',
+  'Gemini Models':'Модели Gemini',
+  'Claude and GPT models':'Модели Claude и GPT',
   'Monthly limit':'Месячный лимит',
   'Monthly Limit':'Месячный лимит',
   'Longer window':'Более длительный период',
@@ -362,7 +367,14 @@ function renderCard(){
   }else if(!snap.windows.length){
     html+=`<div class="c-note">${esc(textCopy(snap.note||'Waiting for first reading…'))}</div>`;
   }else{
+    // Windows that share a group (Antigravity's model families) sit in one box under its name, as on the Mac
+    let group=null;
     for(const w of snap.windows){
+      if((w.group||null)!==group){
+        if(group) html+=`</div>`;
+        group=w.group||null;
+        if(group) html+=`<div class="g-head">${esc(textCopy(group))}</div><div class="g-box">`;
+      }
       if(w.count!=null){
         html+=`<div class="win"><div class="w-row"><span class="w-label">${esc(textCopy(w.label))}</span></div>
           <div class="w-used">${w.count>0?`~${w.count} ${textCopy(w.count===1?'request today':'requests today')}`:textCopy('no requests today')}</div></div>`;
@@ -374,6 +386,7 @@ function renderCard(){
         <div class="w-used">${w.derived?'~':''}${Math.round(w.used*100)}% ${textCopy('Used')}</div>
       </div>`;
     }
+    if(group) html+=`</div>`;
     if(snap.note) html+=`<div class="c-note">${esc(textCopy(snap.note))}</div>`;
   }
   if(p.id==='claude'){ // live sessions (a full list with jump-to-session is a follow-up)

@@ -27,7 +27,7 @@ use tauri::{AppHandle, Emitter, Manager};
 pub const NOTCH_W: f64 = 340.0;
 /// Hand-bumped build tag, written to run.log at startup so a log can always be matched to the exe that wrote it.
 pub const BUILD: &str = "r31";
-pub const NOTCH_H: f64 = 460.0; // 300 clipped the card once it held three window blocks plus the session list
+pub const NOTCH_H: f64 = 520.0; // 300 clipped the card once it held three window blocks plus the session list; 460 clipped Antigravity's two model groups once the reading was stale and an agent was working
 
 pub struct AppState {
     pub store: Mutex<state::Store>,
