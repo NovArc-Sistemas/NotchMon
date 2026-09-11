@@ -497,10 +497,9 @@ fn claude_activity() -> Vec<Activity> {
 // ---------------- Antigravity ----------------
 
 fn antigravity_activity() -> Vec<Activity> {
-    let Some(root) = dirs::home_dir().map(|h| h.join(".gemini").join("antigravity").join("brain")) else { return vec![] };
-    let Ok(rd) = std::fs::read_dir(&root) else { return vec![] };
     let mut newest: Option<(String, u64)> = None;
-    for e in rd.flatten() {
+    let brains = crate::antigravity::state_roots().into_iter().filter_map(|r| std::fs::read_dir(r.join("brain")).ok());
+    for e in brains.flat_map(|rd| rd.flatten()) {
         let t = e.path().join(".system_generated").join("logs").join("transcript.jsonl");
         let Some(m) = mtime_ms(&t) else { continue };
         if newest.as_ref().map(|(_, n)| m > *n).unwrap_or(true) {
