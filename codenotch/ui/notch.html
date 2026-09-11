@@ -63,7 +63,7 @@
 
   /* Hover card, shown to the left of the pill */
   #card{
-    position:absolute;left:10px;right:80px;top:50%;transform:translateY(-50%);--tail:50%;
+    position:absolute;left:10px;right:100px;top:50%;transform:translateY(-50%);
     /* Anchored on both sides = fluid width: whatever the WebView's real logical width, the card cannot
        extend past the window's left edge (a fixed max-width got clipped when the DPI disagreed).
        The 246 cap matches the upstream spec. */
@@ -73,10 +73,15 @@
     display:none;
   }
   #card.show{display:block}
-  #card::after{ /* solid triangle pointing at the pill */
-    content:"";position:absolute;right:-8px;top:var(--tail);transform:translateY(-50%);
-    border:8px solid transparent;border-right:none;border-left:10px solid #0a0a0a;
+  /* The tail, its point on the hovered ring: the Mac's curved wedge (TooltipTail), whose shoulders
+     leave the card tangent to its edge so the two read as one shape. An element of its own rather
+     than ::after, so the card's overflow cannot clip it and it can be reported as hot. It spans the
+     whole gap, its tip tucked 1 px under the pill's edge so the two meet. */
+  #tail{
+    position:absolute;right:69px;width:32px;height:36px;background:#0a0a0a;display:none;
+    clip-path:path('M0 0C0 9 18.56 13.68 32 18C18.56 22.32 0 27 0 36Z');
   }
+  #card.show + #tail{display:block}
   .c-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
   .c-title{font-size:14px;font-weight:700}
   .c-sub{font-size:11px;color:#808080;margin-bottom:10px}
@@ -111,6 +116,7 @@
 <body>
 <div id="root">
   <div id="card"></div>
+  <div id="tail"></div>
   <div id="pill"></div><!-- one .cell per provider, stacked vertically (upstream: data-driven, the same layout for 1–5 cells) -->
   <div id="notice"></div>
 </div>
@@ -422,13 +428,16 @@ function placeCard(){
   const H=innerHeight, ch=card.offsetHeight||0;
   let top=Math.round(cy-ch/2); top=Math.max(8,Math.min(top,H-ch-8));
   card.style.top=top+'px'; card.style.transform='none';
-  card.style.setProperty('--tail',Math.max(16,Math.min(ch-16,Math.round(cy-top)))+'px');
+  // The tail's point on the hovered ring (not the cell, which includes the label below it), kept off the card's rounded corners
+  const rr=(cell.querySelector('.ringwrap')||cell).getBoundingClientRect(), ry=rr.top+rr.height/2;
+  const th=tail.offsetHeight||36, ty=Math.max(top+16+th/2,Math.min(top+ch-16-th/2,ry));
+  tail.style.top=Math.round(ty-th/2)+'px';
 }
 
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
 
 /* Hover: stays expanded while either the pill or the card is under the cursor; collapses after a 250 ms grace period (upstream motion rule) */
-const card=document.getElementById('card'), pill=document.getElementById('pill');
+const card=document.getElementById('card'), pill=document.getElementById('pill'), tail=document.getElementById('tail');
 let hideTimer=null;
 function showCard(){clearTimeout(hideTimer);card.classList.add('show');renderCard();armWatchdog();} // show first, then render: placeCard needs offsetHeight
 function hideCard(){card.classList.remove('show');reportHot();}
@@ -444,7 +453,7 @@ function rectOf(el){const r=el.getBoundingClientRect(),k=window.devicePixelRatio
    when the card opens: a stale pill rectangle is a pill that cannot be clicked. */
 function reportHot(){
   const open=card.classList.contains('show');
-  const rects=open?[rectOf(pill),rectOf(card)]:[rectOf(pill)];
+  const rects=open?[rectOf(pill),rectOf(tail),rectOf(card)]:[rectOf(pill)];
   callq('set_hot',{rects,expanded:open}).catch(()=>{});
 }
 /* ---- Notch size ---------------------------------------------------------
@@ -488,10 +497,10 @@ function loadScale(){
 function armWatchdog(){
   requestAnimationFrame(reportHot); // wait one frame so renderCard's new content is laid out before measuring
 }
-// Viewport fit (pure front-end fallback, independent of Rust): the window is 340 × primary scale physical px,
-// so if this page's CSS viewport is not 340 wide the WebView's DPR disagrees with the monitor; CSS zoom pulls the layout back to the design size.
+// Viewport fit (pure front-end fallback, independent of Rust): the window is NOTCH_W (360) × primary scale physical px,
+// so if this page's CSS viewport is not 360 wide the WebView's DPR disagrees with the monitor; CSS zoom pulls the layout back to the design size.
 function fitZoom(){
-  const z=innerWidth/340;
+  const z=innerWidth/360;
   document.documentElement.style.zoom=(Math.abs(z-1)>0.02)?String(z):'';
   return z;
 }

@@ -23,8 +23,9 @@ mod watcher;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 
-/// Logical size of the notch window: the 70 pt pill column on the right plus room for the hover card on the left.
-pub const NOTCH_W: f64 = 340.0;
+/// Logical size of the notch window: the 70 pt pill column on the right plus room for the hover card
+/// and its tail on the left. `fitZoom` in ui/notch.html divides by the same width.
+pub const NOTCH_W: f64 = 360.0;
 /// Hand-bumped build tag, written to run.log at startup so a log can always be matched to the exe that wrote it.
 pub const BUILD: &str = "r31";
 pub const NOTCH_H: f64 = 520.0; // 300 clipped the card once it held three window blocks plus the session list; 460 clipped Antigravity's two model groups once the reading was stale and an agent was working
@@ -1204,13 +1205,21 @@ mod tests {
     }
 
     #[test]
-    fn the_shipped_pill_and_card_have_no_cold_strip_between_them() {
-        // The 15 px gap is narrower than the 20 px the two pads bring, so the pads already bridge
-        // it and the bounding box never fires for the shipped layout. Pinned: if that stops being
-        // true the crossing starts depending on the bounding box, and the card blinks out mid-travel.
-        let x = (CARD[0] + CARD[2] + PILL[0]) / 2.0;
-        assert!(cursor_in_hot(&[PILL, CARD], x, 250.0, WINDOW));
-        const { assert!(PILL[0] - (CARD[0] + CARD[2]) < 2.0 * HOT_PAD) };
+    fn the_tail_leaves_no_cold_strip_between_the_pill_and_the_card() {
+        // The shipped layout at 150 %, from the CSS: the card stops 100 px from the edge and the
+        // tail spans the rest, its tip under the pill's edge. A pointer crossing along the tail is
+        // hot on one rectangle alone at every step, so it never leans on the bounding box.
+        const WIDE: Option<(f64, f64)> = Some((540.0, 690.0));
+        const WIDE_PILL: [f64; 4] = [435.0, 183.5, 105.0, 323.0];
+        const TAIL: [f64; 4] = [388.5, 318.0, 48.0, 54.0];
+        let y = TAIL[1] + TAIL[3] / 2.0;
+        for x in (CARD[0] + CARD[2]) as i32..WIDE_PILL[0] as i32 {
+            let x = x as f64;
+            assert!(
+                [WIDE_PILL, TAIL, CARD].iter().any(|r| cursor_in_hot(&[*r], x, y, WIDE)),
+                "cold at x={x}"
+            );
+        }
     }
 
     /// Far enough apart that the pads do not meet — the case the bounding box exists for.
