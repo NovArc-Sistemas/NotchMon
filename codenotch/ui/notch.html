@@ -127,6 +127,56 @@ let cursorSnap={status:'absent',windows:[],fetched_at:0,note:''};
 let agSnap={status:'absent',windows:[],fetched_at:0,note:''};
 let glyphs={}; // id → {kind:'mark'|'appicon', url}
 let activity=[]; // working state of the non-Claude providers: {provider,state:'busy'|'waiting',name,detail,since}
+let uiLang='en';
+const RU_TEXT={
+  'Included usage':'Включённое использование',
+  'API usage':'Использование API',
+  'On demand':'По запросу',
+  'Usage':'Использование',
+  'Weekly Limit':'Недельный лимит',
+  '5-Hour Limit':'Лимит на 5 часов',
+  'Monthly Limit':'Месячный лимит',
+  'Requests today · no limit published':'Запросы сегодня · лимит не опубликован',
+  'Updated':'Обновлено',
+  'Resetting…':'Сброс…',
+  'Resets at':'Сброс в',
+  'Resets':'Сброс',
+  'Used':'Использовано',
+  'request today':'запрос сегодня',
+  'requests today':'запросов сегодня',
+  'no requests today':'сегодня запросов нет',
+  'Waiting for first reading…':'Ожидание первого показания…',
+  'Sign in to Claude Code to see usage.':'Войдите в Claude Code, чтобы увидеть использование.',
+  'Sign in to Cursor to see usage.':'Войдите в Cursor, чтобы увидеть использование.',
+  'Sign in to Codex to see usage.':'Войдите в Codex, чтобы увидеть использование.',
+  'Sign in to Antigravity to see usage.':'Войдите в Antigravity, чтобы увидеть использование.',
+  'needs your input':'требуется ваш ответ',
+  'Working in':'Работает в',
+  'Notch size':'Размер панели'
+};
+function textCopy(value){
+  if(!value) return '';
+  if(uiLang!=='ru') return value;
+  if(RU_TEXT[value]) return RU_TEXT[value];
+  return String(value)
+    .replace(/ · via /g,' · через ')
+    .replace(/needs your input/g,'требуется ваш ответ')
+    .replace(/^Working in /,'Работает в ')
+    .replace(/No Claude Code credential found/g,'Учётные данные Claude Code не найдены')
+    .replace(/via Antigravity CLI/g,'через CLI Antigravity')
+    .replace(/via Antigravity/g,'через Antigravity')
+    .replace(/via Google/g,'через Google')
+    .replace(/Antigravity is closed — last reading kept/g,'Antigravity закрыт — сохранено последнее показание')
+    .replace(/Sign in to Cursor \(the editor\) to see usage\./g,'Войдите в Cursor (редактор), чтобы увидеть использование.')
+    .replace(/Cursor session was rejected — sign in again in the editor/g,'Сеанс Cursor отклонён — снова войдите в редакторе');
+}
+function setUiLanguage(lang){
+  const next=lang==='ru'?'ru':'en';
+  if(uiLang===next) return;
+  uiLang=next;
+  renderRing();
+  if(card&&card.classList.contains('show')) renderCard();
+}
 // Notch size, as a percentage (40…100). Declared here with the rest of the page state so the card
 // renderer can never reference it before it exists.
 let scalePct=100, scaleDragging=false, scaleT=null, scaleSaveT=null;
@@ -241,16 +291,20 @@ function renderRing(){
 function resetCopy(ms){
   if(!ms) return '';
   const diff=ms-Date.now();
-  if(diff<=0) return 'Resetting…';
-  if(diff<60*60*1000) return `Resets in ${Math.max(1,Math.round(diff/60000))} min`;
+  if(diff<=0) return uiLang==='ru'?'Сброс…':'Resetting…';
+  if(diff<60*60*1000) return uiLang==='ru'
+    ? `Сброс через ${Math.max(1,Math.round(diff/60000))} мин`
+    : `Resets in ${Math.max(1,Math.round(diff/60000))} min`;
   const d=new Date(ms);
-  const t=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-  if(diff<24*60*60*1000) return `Resets at ${t}`;
-  return `Resets ${d.toLocaleDateString('en-US',{weekday:'short'})} ${t}`;
+  const locale=uiLang==='ru'?'ru-RU':'en-US';
+  const t=d.toLocaleTimeString(locale,{hour:'numeric',minute:'2-digit'});
+  if(diff<24*60*60*1000) return `${uiLang==='ru'?'Сброс в':'Resets at'} ${t}`;
+  return `${uiLang==='ru'?'Сброс':'Resets'} ${d.toLocaleDateString(locale,{weekday:'short'})} ${t}`;
 }
 
 function ago(ms){
   const m=Math.round((Date.now()-ms)/60000);
+  if(uiLang==='ru') return m<60?`${m} мин назад`:`${Math.round(m/60)} ч назад`;
   return m<60?`${m}m ago`:`${Math.round(m/60)}h ago`;
 }
 
@@ -262,27 +316,27 @@ function renderCard(){
   const p=providers().find(x=>x.id===hoverId)||providers()[0];
   const snap=p.snap;
   const headIcon=glyphHtml(p,true);
-  let html=`<div class="c-head">${headIcon}<span class="c-title">${p.name} Usage</span></div>`;
-  if(staleOf(snap)&&snap.fetched_at) html+=`<div class="c-sub">Updated ${ago(snap.fetched_at)}</div>`;
+  let html=`<div class="c-head">${headIcon}<span class="c-title">${uiLang==='ru'?'Использование '+p.name:p.name+' Usage'}</span></div>`;
+  if(staleOf(snap)&&snap.fetched_at) html+=`<div class="c-sub">${textCopy('Updated')} ${ago(snap.fetched_at)}</div>`;
   if(snap.status==='needsAuth'){
     const who={claude:'Sign in to Claude Code to see usage.',cursor:'Sign in to Cursor to see usage.',codex:'Sign in to Codex to see usage.',gemini:'Sign in to Antigravity to see usage.'}[p.id]||'';
-    html+=`<div class="c-note">${who}<br>${snap.note||''}</div>`;
+    html+=`<div class="c-note">${textCopy(who)}<br>${esc(textCopy(snap.note||''))}</div>`;
   }else if(!snap.windows.length){
-    html+=`<div class="c-note">${snap.note||'Waiting for first reading…'}</div>`;
+    html+=`<div class="c-note">${esc(textCopy(snap.note||'Waiting for first reading…'))}</div>`;
   }else{
     for(const w of snap.windows){
       if(w.count!=null){
-        html+=`<div class="win"><div class="w-row"><span class="w-label">${w.label}</span></div>
-          <div class="w-used">${w.count>0?`~${w.count} request${w.count===1?'':'s'} today`:'no requests today'}</div></div>`;
+        html+=`<div class="win"><div class="w-row"><span class="w-label">${esc(textCopy(w.label))}</span></div>
+          <div class="w-used">${w.count>0?`~${w.count} ${textCopy(w.count===1?'request today':'requests today')}`:textCopy('no requests today')}</div></div>`;
         continue;
       }
       html+=`<div class="win">
-        <div class="w-row"><span class="w-label">${w.label}</span><span class="w-reset">${resetCopy(w.resets_at)}</span></div>
+        <div class="w-row"><span class="w-label">${esc(textCopy(w.label))}</span><span class="w-reset">${resetCopy(w.resets_at)}</span></div>
         <div class="w-track"><div class="w-fill" style="width:${(Math.min(w.used,1)*100).toFixed(0)}%;background:${tone(w.used)}"></div></div>
-        <div class="w-used">${w.derived?'~':''}${Math.round(w.used*100)}% Used</div>
+        <div class="w-used">${w.derived?'~':''}${Math.round(w.used*100)}% ${textCopy('Used')}</div>
       </div>`;
     }
-    if(snap.note) html+=`<div class="c-note">${snap.note}</div>`;
+    if(snap.note) html+=`<div class="c-note">${esc(textCopy(snap.note))}</div>`;
   }
   if(p.id==='claude'){ // live sessions (a full list with jump-to-session is a follow-up)
     const act=stateSnap.sessions.filter(s=>s.state!=='idle');
@@ -299,12 +353,12 @@ function renderCard(){
       html+=`<div class="c-sessions">`;
       for(const a of acts.slice(0,5)){
         const col=a.state==='waiting'?AMBER:RUNGREEN;
-        html+=`<div class="s-row"><span class="s-dot" style="background:${col}"></span>${esc(a.name)}<span style="color:#808080;margin-left:auto">${esc(a.detail)}</span></div>`;
+        html+=`<div class="s-row"><span class="s-dot" style="background:${col}"></span>${esc(a.name)}<span style="color:#808080;margin-left:auto">${esc(textCopy(a.detail))}</span></div>`;
       }
       html+=`</div>`;
     }
   }
-  html+=`<div class="c-scale"><input id="scale-range" type="range" min="40" max="100" step="5" value="${scalePct}" aria-label="Notch size" title="Notch size"><span class="c-scale-val" id="scale-val">${scalePct}%</span></div>`;
+  html+=`<div class="c-scale"><input id="scale-range" type="range" min="40" max="100" step="5" value="${scalePct}" aria-label="${textCopy('Notch size')}" title="${textCopy('Notch size')}"><span class="c-scale-val" id="scale-val">${scalePct}%</span></div>`;
   c.innerHTML=html;
   wireScaleRow();
   placeCard();
@@ -471,7 +525,7 @@ function notice(msg){
 
 listen('usage',e=>{usage=e.payload||usage;renderRing();if(card.classList.contains('show'))renderCard();})
   .catch(e=>notice('listen(usage) failed: '+e));
-listen('state',e=>{stateSnap=e.payload||stateSnap;renderRing();if(card.classList.contains('show'))renderCard();})
+listen('state',e=>{stateSnap=e.payload||stateSnap;setUiLanguage(stateSnap.lang_resolved);renderRing();if(card.classList.contains('show'))renderCard();})
   .catch(e=>notice('listen(state) failed: '+e));
 listen('notice',e=>notice(e.payload)).catch(()=>{});
 listen('codex',e=>{codexSnap=e.payload||codexSnap;renderRing();if(card.classList.contains('show'))renderCard();}).catch(()=>{});
@@ -492,7 +546,7 @@ invoke('get_activity').then(a=>{activity=a||activity;renderRing();}).catch(()=>{
 invoke('get_glyphs').then(g=>{glyphs=g||glyphs;renderRing();}).catch(()=>{});
 invoke('get_codex').then(u=>{codexSnap=u||codexSnap;renderRing();}).catch(()=>{});
 invoke('get_usage').then(u=>{usage=u||usage;renderRing();}).catch(e=>notice('get_usage failed: '+e));
-invoke('get_state').then(s=>{stateSnap=s||stateSnap;renderRing();}).catch(()=>{});
+invoke('get_state').then(s=>{stateSnap=s||stateSnap;setUiLanguage(stateSnap.lang_resolved);renderRing();}).catch(()=>{});
 setInterval(renderRing,30_000); // stale state and reset copy move with time
 </script>
 </body>
