@@ -1,57 +1,51 @@
-//! Antigravity (Google's IDE, Gemini quota) usage adapter, implemented from the upstream
-//! Codenotch's documented behaviour.
+//! Antigravity usage adapter.
 //!
-//! Google publishes no usage numbers to third parties: `cloudcode-pa`'s `retrieveUserQuotaSummary`
-//! answers a personal account with 403 #3501 "no valid license" (it looks at *who* is asking, and
-//! impersonating Antigravity is off the table). Upstream's answer is Antigravity's own answer: ask
-//! the language_server running on this machine — it holds the credential and the client identity
-//! and asks Google itself.
+//! Preferred path: when official Antigravity CLI (`agy.exe`) is installed
+//! (`%LOCALAPPDATA%\agy\bin\agy.exe` or `PATH`), executes standalone `agy --print /usage`
+//! via native Windows ConPTY inside a bounded JobObject without running the full IDE.
+//! Refreshes at startup and explicit/hover requests with a 5-minute TTL cache.
 //!
-//! Data paths, most honest first (same as upstream):
-//!   1. Local bridge: find the `language_server*` process (its command line carries
-//!      `--csrf_token <t>`; the port is `--https_server_port 0`, i.e. random at runtime, and can
-//!      only be found in the listening table; it opens two ports and only one answers this RPC,
-//!      so both are tried),
-//!      POST `https://127.0.0.1:<port>/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary`
-//!      with header `x-codeium-csrf-token: <t>` (Antigravity sits on the Codeium stack; the header
-//!      name never changed) and body `{"forceRefresh":true}` (otherwise the server answers from
-//!      QuotaSummaryCache). Self-signed certificate → verification is relaxed for 127.0.0.1 only.
-//!      Reply `{response:{groups:[{displayName, buckets:[{bucketId, displayName, remainingFraction, resetTime}]}]}}`
-//!      — it reports what **remains**, so used = 1 - remainingFraction; the label is
-//!      group.displayName (buckets only ever say "Weekly Limit Remaining").
-//!   2. Bridge answered before and does not now = Antigravity is closed (the port changes on every
-//!      launch): keep the last percentage marked stale rather than switching to a count.
-//!   3. Credential path (when a Google token exists): Windows Credential Manager target
-//!      `gemini:antigravity` (Go keyring: service:user), value JSON
-//!      `{auth_method, token:{access_token, expiry (RFC3339 with offset)}}`; on macOS it carries a
-//!      `go-keyring-base64:` prefix, and both forms are accepted. POST `:loadCodeAssist`
-//!      (`{"metadata":{"pluginType":"GEMINI"}}`, not ANTIGRAVITY) for the tier name; then try
-//!      `:retrieveUserQuotaSummary` (empty body `{}`), which is 200 only for licensed accounts, and
-//!      parse it defensively (no positive limit, or used > 1.5×limit → discard).
-//!   4. Fallback: count today's `source=="MODEL"` steps in
-//!      `~/.gemini/antigravity/brain/*/.system_generated/logs/transcript.jsonl` (created_at is UTC,
-//!      compared by local day). This is a **count, not a percentage** — there is no published
-//!      denominator, so the ring draws only its track.
-//!
-//! Read only; token values are never cached and never appear in any log.
+//! Fallback path: when CLI is absent, preserves existing upstream adapter behavior
+//! (local language_server bridge, Google Cloud Code API, or transcript model turn count).
 
 use crate::usage::{LimitWindow, UsageSnapshot};
 use crate::AppState;
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
 
 const POLL_SECS: u64 = 300;
+const CLI_TTL: Duration = Duration::from_secs(300);
 const LOAD_CODE_ASSIST: &str = "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
 const QUOTA_SUMMARY: &str = "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary";
 const LS_SERVICE: &str = "/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary";
 const CSRF_HEADER: &str = "x-codeium-csrf-token";
 
-static REFRESH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static REFRESH_CLI: Mutex<Option<std::sync::mpsc::SyncSender<()>>> = Mutex::new(None);
+static REFRESH_LEGACY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 pub fn request_refresh() {
-    REFRESH.store(true, std::sync::atomic::Ordering::Relaxed);
+    if let Some(sender) = REFRESH_CLI.lock().unwrap().as_ref() {
+        let _ = sender.try_send(());
+    } else {
+        REFRESH_LEGACY.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
+pub fn request_hover_refresh() {
+    // Hover must not wake the legacy adapter's periodic poller.
+    if let Some(sender) = REFRESH_CLI.lock().unwrap().as_ref() {
+        let _ = sender.try_send(());
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn hover_does_not_request_legacy_refresh() {
+    assert!(REFRESH_CLI.lock().unwrap().is_none());
+    request_hover_refresh();
+    assert!(!REFRESH_LEGACY.load(std::sync::atomic::Ordering::Relaxed));
 }
 
 fn now_ms() -> u64 {
@@ -70,26 +64,50 @@ fn store_path() -> PathBuf {
 }
 
 pub fn load_persisted() -> UsageSnapshot {
-    std::fs::read_to_string(store_path())
-        .ok()
-        .and_then(|t| serde_json::from_str::<UsageSnapshot>(&t).ok())
-        .map(|mut s| {
-            if !s.windows.is_empty() {
-                s.status = "stale".into();
-            }
-            s
-        })
-        .unwrap_or_default()
-}
-
-fn persist(s: &UsageSnapshot) {
-    if let Ok(t) = serde_json::to_string_pretty(s) {
-        let _ = std::fs::write(store_path(), t);
+    if crate::agy_cli::find_agy().is_some() {
+        let mut snap = std::fs::read_to_string(store_path())
+            .ok()
+            .and_then(|s| serde_json::from_str::<UsageSnapshot>(&s).ok())
+            .unwrap_or_default();
+        if !snap.note.starts_with("via Antigravity CLI") {
+            snap = UsageSnapshot::default();
+        }
+        snap.status = if snap.windows.is_empty() {
+            "error"
+        } else if now_ms().saturating_sub(snap.fetched_at) < CLI_TTL.as_millis() as u64 {
+            "ok"
+        } else {
+            "stale"
+        }
+        .into();
+        if snap.windows.is_empty() {
+            snap.note = "Waiting for Antigravity CLI quota".into();
+        }
+        snap
+    } else {
+        std::fs::read_to_string(store_path())
+            .ok()
+            .and_then(|t| serde_json::from_str::<UsageSnapshot>(&t).ok())
+            .map(|mut s| {
+                if !s.windows.is_empty() {
+                    s.status = "stale".into();
+                }
+                s
+            })
+            .unwrap_or_default()
     }
 }
 
-/// Is Antigravity installed: the state directory exists, or Credential Manager holds its token
+fn persist(s: &UsageSnapshot) {
+    let _ = crate::agy_cli::save_persisted_to(&store_path(), s);
+}
+
+/// Is Antigravity installed: official CLI is available, or state directory / Credential Manager exists
 pub fn present() -> bool {
+    crate::agy_cli::find_agy().is_some() || legacy_present()
+}
+
+fn legacy_present() -> bool {
     state_root().map(|p| p.is_dir()).unwrap_or(false) || read_credential_raw().is_some()
 }
 
@@ -565,7 +583,7 @@ fn broadcast(app: &AppHandle, snap: UsageSnapshot) {
 
 fn sleep_interruptible(secs: u64) {
     for _ in 0..secs {
-        if REFRESH.swap(false, std::sync::atomic::Ordering::Relaxed) {
+        if REFRESH_LEGACY.swap(false, std::sync::atomic::Ordering::Relaxed) {
             return;
         }
         std::thread::sleep(Duration::from_secs(1));
@@ -573,17 +591,86 @@ fn sleep_interruptible(secs: u64) {
 }
 
 pub fn start(app: AppHandle) {
+    if crate::agy_cli::find_agy().is_some() {
+        start_cli(app);
+    } else {
+        start_legacy(app);
+    }
+}
+
+fn start_cli(app: AppHandle) {
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+    *REFRESH_CLI.lock().unwrap() = Some(sender);
+
     std::thread::spawn(move || {
         {
             let st = app.state::<AppState>();
             let snap = st.antigravity.lock().unwrap().clone();
             let _ = app.emit("antigravity", &snap);
         }
-        if !present() {
+
+        let mut last_attempt: Option<Instant> = None;
+
+        while receiver.recv().is_ok() {
+            if last_attempt.is_some_and(|last| last.elapsed() < CLI_TTL) {
+                continue;
+            }
+            let st = app.state::<AppState>();
+            let previous = st.antigravity.lock().unwrap().clone();
+            if !previous.windows.is_empty()
+                && now_ms().saturating_sub(previous.fetched_at) < CLI_TTL.as_millis() as u64
+            {
+                continue;
+            }
+            last_attempt = Some(Instant::now());
+
+            let snap = match crate::agy_cli::read_quota() {
+                Ok(windows) => UsageSnapshot {
+                    status: "ok".into(),
+                    windows,
+                    fetched_at: now_ms(),
+                    note: "via Antigravity CLI".into(),
+                    ..Default::default()
+                },
+                Err(error) => UsageSnapshot {
+                    status: if previous.windows.is_empty() {
+                        "error".into()
+                    } else {
+                        "stale".into()
+                    },
+                    note: format!(
+                        "via Antigravity CLI — {error}.{}",
+                        if previous.windows.is_empty() {
+                            ""
+                        } else {
+                            " Last reading kept."
+                        }
+                    ),
+                    ..previous
+                },
+            };
+
+            *st.antigravity.lock().unwrap() = snap.clone();
+            persist(&snap);
+            let _ = app.emit("antigravity", &snap);
+        }
+    });
+
+    request_refresh();
+}
+
+fn start_legacy(app: AppHandle) {
+    std::thread::spawn(move || {
+        {
+            let st = app.state::<AppState>();
+            let snap = st.antigravity.lock().unwrap().clone();
+            let _ = app.emit("antigravity", &snap);
+        }
+        if !legacy_present() {
             broadcast(&app, UsageSnapshot { status: "absent".into(), ..Default::default() });
             loop {
                 sleep_interruptible(600);
-                if present() {
+                if legacy_present() {
                     break;
                 }
             }
@@ -604,6 +691,14 @@ pub fn start(app: AppHandle) {
 
 /// For doctor: contains no secrets
 pub fn probe() -> String {
+    if let Some(agy) = crate::agy_cli::find_agy() {
+        format!("Antigravity: official CLI installed at {}", agy.display())
+    } else {
+        legacy_probe()
+    }
+}
+
+fn legacy_probe() -> String {
     let root = state_root().map(|p| p.display().to_string()).unwrap_or_default();
     let has_root = state_root().map(|p| p.is_dir()).unwrap_or(false);
     let cred = read_credentials();
