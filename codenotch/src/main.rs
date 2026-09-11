@@ -819,6 +819,15 @@ fn get_lang(app: AppHandle) -> String {
     c.lang.clone()
 }
 
+/// The settings WebView must use the same Windows locale as the tray. WebView2's
+/// navigator.language can describe the browser runtime rather than the user locale.
+#[tauri::command]
+fn get_lang_resolved(app: AppHandle) -> String {
+    let st = app.state::<AppState>();
+    let c = st.cfg.lock().unwrap();
+    resolved_lang(&c.lang)
+}
+
 #[tauri::command]
 fn get_autostart() -> bool {
     autostart::is_enabled()
@@ -1086,6 +1095,7 @@ fn main() {
             get_ui_flags,
             set_ui_flags,
             get_lang,
+            get_lang_resolved,
             get_autostart,
             set_autostart,
             get_hooks_installed,

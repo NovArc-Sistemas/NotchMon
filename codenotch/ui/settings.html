@@ -373,7 +373,7 @@
         <div class="row">
           <div class="r-text">
             <div class="r-name">Words used by Codenotch</div>
-            <div class="r-why">Sets the language of the taskbar icon&#39;s right-click menu, which is the only part of Codenotch that is translated: its three items. The notch, its hover card and this settings window are English only. &quot;Follow system&quot; uses whatever language Windows itself is set to.</div>
+            <div class="r-why">Sets the language used by Codenotch. “Follow system” uses the language Windows itself is set to.</div>
           </div>
           <div class="r-ctl">
             <select id="lang" aria-label="Language">
@@ -492,10 +492,101 @@ function band(p){ return p < 50 ? '#4ade80' : p < 80 ? '#facc15' : '#f87171'; }
 /* Fallback names, used only until get_tray_options answers (or if it never does). */
 const ORDER = ['claude', 'codex', 'cursor', 'gemini'];
 const FALLBACK_LABEL = { claude:'Claude', codex:'Codex', cursor:'Cursor', gemini:'Antigravity' };
-const STATUS_TEXT = {
-  ok:'', stale:'last reading is old', needsAuth:'not signed in',
-  absent:'not installed', none:'nothing to report', error:'not reachable'
+const RU_STATIC = {
+  'Settings sections':'Разделы настроек', 'Appearance':'Внешний вид', 'Taskbar icon':'Значок в панели задач',
+  'Notch':'Панель', 'General':'Общие', 'Behaviour':'Поведение', 'Claude Code':'Claude Code', 'About':'О программе',
+  'The small icon down by the clock. Codenotch draws your usage straight into it — 32 pixels square. Pick a layout, then click a part of the picture to choose what that part shows.':'Небольшой значок рядом с часами. Codenotch показывает в нём использование — 32 пикселя. Выберите макет и нажмите на часть изображения, чтобы настроить её.',
+  'Layout':'Макет', 'What gets drawn into those 32 pixels.':'Что отображается в этих 32 пикселях.',
+  'The plain Codenotch logo is used.':'Используется обычный логотип Codenotch.', 'No numbers are drawn.':'Числа не отображаются.',
+  'Actual size':'Фактический размер', 'This is how big it really is in the taskbar.':'Такой размер значок имеет в панели задач.',
+  'Windows picks one of these depending on the display. If a number is unreadable here, it will be unreadable in the taskbar.':'Windows выбирает один из вариантов в зависимости от масштаба экрана. Если число не читается здесь, в панели задач оно тоже не будет читаться.',
+  'What each part shows':'Что показывает каждая часть', 'Pick the tool, then the usage window you want drawn there.':'Выберите инструмент, затем окно использования для этой части.',
+  'The small black pill that floats against the right-hand edge of the screen. Each tool you tick gets one ring on it.':'Небольшая чёрная панель у правого края экрана. Каждый выбранный инструмент получает на ней своё кольцо.',
+  'What appears on the pill':'Что отображается на панели', 'Click a name to switch its ring on or off. The list underneath each name chooses which usage window that ring counts.':'Нажмите на название, чтобы включить или выключить кольцо. В списке под названием выбирается окно использования для этого кольца.',
+  'Size':'Размер', 'How big the pill is drawn. The same slider sits at the foot of the pill\'s hover card, so it can be changed from either place.':'Размер панели. Такой же ползунок находится внизу карточки при наведении на панель.',
+  'Whether the pill is on screen at all is a separate switch, under General → Behaviour.':'Видимость панели переключается отдельно в разделе «Общие → Поведение».',
+  'When Codenotch runs, and what it puts on your screen.':'Когда запускается Codenotch и что он показывает на экране.',
+  'Starting up':'Запуск', 'Start with Windows':'Запускать вместе с Windows',
+  'Codenotch opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Codenotch yourself.':'Codenotch запускается при входе в систему и тихо работает в фоне до начала сеанса разработки. Если выключить эту настройку, Codenotch нужно запускать вручную.',
+  'What is on screen':'Что отображается на экране', 'Show the notch':'Показывать панель', 'Show the taskbar icon':'Показывать значок в панели задач',
+  'Language':'Язык', 'Words used by Codenotch':'Язык Codenotch', 'Follow system':'Как в системе', 'English':'English', 'Русский':'Русский',
+  'Claude Code can tell Codenotch the moment something happens in a session, instead of Codenotch having to guess from files on disk.':'Claude Code может сразу сообщать Codenotch о событиях сеанса, вместо того чтобы Codenotch угадывал их по файлам на диске.',
+  'Session messages':'Сообщения сеанса', 'Let Claude Code notify Codenotch':'Разрешить Claude Code уведомлять Codenotch',
+  'What this copy of Codenotch is, and where it keeps its files.':'Что это за копия Codenotch и где хранятся её файлы.', 'Version':'Версия',
+  'Files':'Файлы', 'Data folder':'Папка данных', 'Open folder':'Открыть папку', 'If something looks wrong':'Если что-то работает неправильно',
+  'Put the notch back':'Вернуть панель', 'Reset position':'Сбросить положение', 'Saved':'Сохранено',
+  'Numbers':'Числа', 'two readings':'два показания', 'Bars':'Полосы', '1 to 5 columns':'от 1 до 5 столбцов', 'Plain icon':'Обычный значок', 'just the logo':'только логотип',
+  'Whichever is fullest':'Самое заполненное', 'No windows reported':'Нет доступных окон', 'kept':'оставлено', 'Showing':'Показывается', 'Showing in':'Показывается в',
+  '"Whichever is fullest" starts working as soon as it reports one.':'«Самое заполненное» начнёт работать, как только появится окно использования.',
+  '"%@" is no longer available':'«%@» больше недоступен', '%@ no longer reports "%@"':'%@ больше не сообщает «%@»', '%@ — that slot now shows whichever window is fullest.':'%@ — теперь слот показывает самое заполненное окно.',
+  'One provider always stays ticked, so the pill is never empty.':'Хотя бы один провайдер всегда выбран, поэтому панель не бывает пустой.',
+  'The taskbar icon shows the plain Codenotch logo.':'Значок в панели задач показывает обычный логотип Codenotch.',
+  'Choose Numbers or Bars above to draw your usage into it.':'Выберите выше «Числа» или «Полосы», чтобы показывать в нём использование.',
+  'What is on screen':'Что отображается на экране', 'Show the notch':'Показывать панель', 'Show the taskbar icon':'Показывать значок в панели задач',
+  'Open the notch for a moment':'Ненадолго открыть панель', 'At least one provider stays on the notch':'На панели должен остаться хотя бы один провайдер',
+  'The notch is back in the middle':'Панель возвращена в центр', 'Remove this column':'Удалить этот столбец', 'Add column':'Добавить столбец',
+  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Codenotch, so Codenotch will not let both of them be switched off at the same time.':'Значок в панели задач оставлен включённым. При скрытой панели это единственный способ открыть окно или завершить работу Codenotch, поэтому оба элемента нельзя выключить одновременно.',
+  'One of these two always stays on. If you hide the notch, the taskbar icon is held on for you, because with both of them gone there would be nothing left to click and no way back to this window.':'Один из этих элементов всегда остаётся включённым. Если скрыть панель, значок в панели задач останется включённым, иначе Codenotch будет неоткуда открыть.',
+  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Codenotch keeps counting your usage either way.':'Чёрная панель у правого края экрана с отдельным кольцом для каждого инструмента. При выключении панель исчезает, но Codenotch продолжает считать использование.',
+  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Codenotch.':'Небольшой значок рядом с часами. Щелчок правой кнопкой открывает это окно, обновляет данные или завершает работу Codenotch.',
+  'Held on: the notch is hidden, so this icon is the only way left to reach Codenotch. Switch the notch back on first if you want to hide it.':'Оставлен включённым: панель скрыта, поэтому этот значок — единственный способ открыть Codenotch. Сначала включите панель, если хотите скрыть значок.',
+  'Sets the language used by Codenotch. “Follow system” uses the language Windows itself is set to.':'Задаёт язык Codenotch. Вариант «Как в системе» использует язык Windows.',
+  'The small icon down by the clock. Codenotch draws your usage straight into it — 32 pixels square. Pick a layout, then click a part of the picture to choose what that part shows.':'Небольшой значок рядом с часами. Codenotch показывает в нём использование — 32 пикселя. Выберите макет и нажмите на часть изображения, чтобы настроить её.',
+  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Codenotch a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'При включении в файл настроек Claude Code добавляются строки, чтобы он сообщал Codenotch о начале работы, процессе, ожидании ответа и завершении сеанса. Благодаря этому кольцо вращается, а янтарное кольцо пульсирует.',
+  'The file being changed is':'Изменяемый файл —',
+  'in your user folder. A dated copy of it is saved before anything is written, and turning this switch off takes the lines out again. Any hooks you added yourself are left alone.':'в вашей папке пользователя. Перед изменением сохраняется копия с датой, а при выключении настройки добавленные строки удаляются. Ваши собственные хуки не затрагиваются.',
+  'Shows how much of your Claude, Codex, Cursor and Antigravity allowance you have used, in the taskbar icon and in a pill at the edge of the screen.':'Показывает использование Claude, Codex, Cursor и Antigravity в значке панели задач и на панели у края экрана.',
+  'Everything Codenotch remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in File Explorer.':'Все данные Codenotch хранятся в одной папке: настройки, журнал и папка «glyphs» для собственных значков. Открывается в Проводнике.',
+  'The pill can be dragged up and down the right-hand edge. If it has ended up somewhere you cannot see it — off the bottom of a screen you have unplugged, say — this drops it back into the middle of the edge.':'Панель можно перетаскивать вверх и вниз вдоль правого края. Если она оказалась за пределами экрана, эта кнопка возвращает её в середину края.',
+  'The plain Codenotch logo is used.':'Используется обычный логотип Codenotch.', 'No numbers are drawn.':'Числа не отображаются.',
+  'This is how big it really is in the taskbar.':'Такой размер значок имеет в панели задач.',
+  'Windows picks one of these depending on the display. If a number is unreadable here, it will be unreadable in the taskbar.':'Windows выбирает один из вариантов в зависимости от масштаба экрана. Если число не читается здесь, в панели задач оно тоже не будет читаться.',
+  'Notch size':'Размер панели', 'Codenotch':'Codenotch', 'Tray icon preview':'Предпросмотр значка', 'Codenotch logo':'Логотип Codenotch', 'Tray icon at':'Значок размером', 'pixels':'пикселей',
+  'Down the right-hand edge':'У правого края', 'Down the left-hand edge':'У левого края', 'Top half':'Верхняя половина', 'Bottom half':'Нижняя половина', 'Column':'Столбец', 'Remove column':'Удалить столбец'
 };
+const STATUS_TEXT = {
+  en:{ ok:'', stale:'last reading is old', needsAuth:'not signed in', absent:'not installed', none:'nothing to report', error:'not reachable' },
+  ru:{ ok:'', stale:'данные устарели', needsAuth:'не выполнен вход', absent:'не установлен', none:'нет данных', error:'недоступен' }
+};
+let uiLang = 'en';
+function ui(key, fallback){ return uiLang === 'ru' ? (RU_STATIC[key] || fallback) : fallback; }
+function applyStaticUi(){
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while(walker.nextNode()) nodes.push(walker.currentNode);
+  for(const node of nodes){
+    if(node.parentElement && ['SCRIPT','STYLE'].indexOf(node.parentElement.tagName) >= 0) continue;
+    if(node.__enText === undefined) node.__enText = node.nodeValue;
+    const raw = node.__enText;
+    const key = raw.trim();
+    if(!key) continue;
+    const translated = uiLang === 'ru' ? RU_STATIC[key] : null;
+    node.nodeValue = raw.replace(key, translated || key);
+  }
+  for(const el of document.querySelectorAll('[aria-label],[title],[alt]')){
+    for(const attr of ['aria-label','title','alt']){
+      if(!el.hasAttribute(attr)) continue;
+      const marker = '__en_' + attr.replace('-', '_');
+      if(el[marker] === undefined) el[marker] = el.getAttribute(attr);
+      const original = el[marker];
+      el.setAttribute(attr, uiLang === 'ru' ? (RU_STATIC[original] || original) : original);
+    }
+  }
+}
+function setUiLanguage(lang){
+  uiLang = lang === 'ru' || (lang === 'auto' && /^ru(?:-|$)/i.test(navigator.language || '')) ? 'ru' : 'en';
+  applyStaticUi();
+  render();
+}
+function setUiLanguageFromRaw(raw){
+  if(raw !== 'auto'){
+    setUiLanguage(raw);
+    return Promise.resolve();
+  }
+  return call('get_lang_resolved', undefined, 'en').then(resolved => {
+    setUiLanguage(typeof resolved === 'string' ? resolved : 'en');
+  });
+}
 const MAX_BARS = 5, NUMBER_SLOTS = 2;
 
 let options = [];                        // [{id,label,status,windows:[{id,label,used}]}]
@@ -624,7 +715,7 @@ function winsOf(id){
   return (p && Array.isArray(p.windows)) ? p.windows : [];
 }
 function winLabel(pid, wid){
-  if(!wid) return 'Whichever is fullest';
+  if(!wid) return ui('Whichever is fullest', 'Whichever is fullest');
   const w = winsOf(pid).find(x => x.id === wid);
   return w ? w.label : wid;
 }
@@ -638,7 +729,8 @@ function providerList(){
 }
 /* The one place a status code turns into words ("not signed in"), shared for the same reason. */
 function statusText(p){
-  return STATUS_TEXT[p.status] !== undefined ? STATUS_TEXT[p.status] : String((p && p.status) || '');
+  const words = STATUS_TEXT[uiLang] || STATUS_TEXT.en;
+  return words[p.status] !== undefined ? words[p.status] : String((p && p.status) || '');
 }
 
 /* Which provider to reach for when a slot has to be invented or repaired: one that is actually
@@ -671,12 +763,12 @@ function fixSlot(s, notes){
   const provider = s.provider;
   let win = typeof s.window === 'string' ? s.window : '';   // not named `window`: that is the global
   if(options.length && !provOf(provider)){
-    notes.push('"' + provider + '" is no longer available');
+    notes.push(ui('"%@" is no longer available', '"%@" is no longer available').replace('%@', provider));
     return { provider: pickProvider([]), window: '' };
   }
   const wins = winsOf(provider);
   if(win && win !== 'top' && wins.length && !wins.some(w => w.id === win)){
-    notes.push(provLabel(provider) + ' no longer reports "' + win + '"');
+    notes.push(ui('%@ no longer reports "%@"', '%@ no longer reports "%@"').replace('%@', provLabel(provider)).replace('%@', win));
     win = '';
   }
   if(win === 'top') win = '';   // the Rust side treats "top" as "fullest"; store the plain form
@@ -696,7 +788,7 @@ function normalize(){
   cfg.slots = slots;
   if(sel >= cfg.slots.length) sel = cfg.slots.length - 1;
   if(sel < 0) sel = 0;
-  repairNote = notes.length ? notes[0] + ' — that slot now shows whichever window is fullest.' : '';
+  repairNote = notes.length ? ui('%@ — that slot now shows whichever window is fullest.', '%@ — that slot now shows whichever window is fullest.').replace('%@', notes[0]) : '';
 }
 
 /* ---- saving ------------------------------------------------------------ */
@@ -705,7 +797,7 @@ function payload(){
 }
 function persist(quiet){
   invoke('set_tray_config', { cfg: payload() })
-    .then(() => { if(!quiet) toast('Saved'); })
+    .then(() => { if(!quiet) toast(ui('Saved', 'Saved')); })
     .catch(e => strip('set_tray_config failed: ' + errText(e)));
 }
 
@@ -766,8 +858,8 @@ function regionBoxes(){
   return [];
 }
 function slotName(i){
-  if(cfg.mode === 'numbers') return i === 0 ? 'Top half' : 'Bottom half';
-  return 'Column ' + (i + 1);
+  if(cfg.mode === 'numbers') return i === 0 ? ui('Top half', 'Top half') : ui('Bottom half', 'Bottom half');
+  return ui('Column', 'Column') + ' ' + (i + 1);
 }
 
 function renderRegions(){
@@ -793,7 +885,7 @@ const MODES = [
 function renderModes(){
   document.getElementById('modes').innerHTML = MODES.map(m =>
     '<button class="mode' + (cfg.mode === m.id ? ' on' : '') + '" data-m="' + m.id + '">'
-    + esc(m.name) + '<span class="mode-sub">' + esc(m.sub) + '</span></button>'
+    + esc(ui(m.name, m.name)) + '<span class="mode-sub">' + esc(ui(m.sub, m.sub)) + '</span></button>'
   ).join('');
 }
 function setMode(mode){
@@ -816,12 +908,12 @@ function renderChips(){
       + '<button class="chip-pick" data-chip="' + i + '" aria-pressed="' + (i === sel) + '">'
       + '<b>' + esc(slotName(i)) + '</b><span class="ctext">' + esc(text) + '</span></button>'
       + (cfg.mode === 'bars' && cfg.slots.length > 1
-        ? '<button class="chip-x" data-del="' + i + '" title="Remove this column" aria-label="Remove column ' + (i + 1) + '">&times;</button>'
+        ? '<button class="chip-x" data-del="' + i + '" title="' + esc(ui('Remove this column', 'Remove this column')) + '" aria-label="' + esc(ui('Remove column', 'Remove column')) + ' ' + (i + 1) + '">&times;</button>'
         : '')
       + '</span>';
   });
   if(cfg.mode === 'bars' && cfg.slots.length < MAX_BARS){
-    html += '<button class="chip chip-add" data-add="1">+ Add column</button>';
+    html += '<button class="chip chip-add" data-add="1">+ ' + esc(ui('Add column', 'Add column')) + '</button>';
   }
   host.innerHTML = html;
 }
@@ -830,12 +922,12 @@ function renderChips(){
 function renderPicker(){
   const host = document.getElementById('picker');
   if(cfg.mode === 'off'){
-    host.innerHTML = '<div class="c-note dim">The taskbar icon shows the plain Codenotch logo. '
-      + 'Choose Numbers or Bars above to draw your usage into it.</div>';
+    host.innerHTML = '<div class="c-note dim">' + esc(ui('The taskbar icon shows the plain Codenotch logo.', 'The taskbar icon shows the plain Codenotch logo.')) + ' '
+      + esc(ui('Choose Numbers or Bars above to draw your usage into it.', 'Choose Numbers or Bars above to draw your usage into it.')) + '</div>';
     return;
   }
   const cur = cfg.slots[sel] || { provider:'', window:'' };
-  let html = '<div class="p-head">Showing in <b>' + esc(slotName(sel)) + '</b>: '
+  let html = '<div class="p-head">' + esc(ui('Showing in', 'Showing in')) + ' <b>' + esc(slotName(sel)) + '</b>: '
     + esc(provLabel(cur.provider) + ' — ' + winLabel(cur.provider, cur.window)) + '</div>';
   if(repairNote) html += '<div class="c-note dim" style="margin-bottom:8px">' + esc(repairNote) + '</div>';
 
@@ -850,13 +942,13 @@ function renderPicker(){
     const anyOn = cur.provider === p.id && !cur.window;
     html += '<button class="p-item' + (anyOn ? ' on' : '') + '" data-p="' + esc(p.id) + '" data-w="">'
       + '<span class="p-tick">' + (anyOn ? '&#10003;' : '') + '</span>'
-      + '<span class="p-label p-any">Whichever is fullest</span></button>';
+      + '<span class="p-label p-any">' + esc(ui('Whichever is fullest', 'Whichever is fullest')) + '</span></button>';
 
     const wins = Array.isArray(p.windows) ? p.windows : [];
     if(!wins.length){
-      html += '<div class="p-empty">No windows reported'
+      html += '<div class="p-empty">' + esc(ui('No windows reported', 'No windows reported'))
         + (st ? ' — ' + esc(st) + '.' : '.')
-        + ' "Whichever is fullest" starts working as soon as it reports one.</div>';
+        + ' ' + esc(ui('"Whichever is fullest" starts working as soon as it reports one.', '"Whichever is fullest" starts working as soon as it reports one.')) + '</div>';
     }
     for(const w of wins){
       const on = cur.provider === p.id && cur.window === w.id;
@@ -973,7 +1065,7 @@ function renderNotch(){
       + (only ? '<span class="np-lock">kept</span>' : '')
       + '</span></button>';
     // The window picker only means anything for a ring that is actually drawn
-    let opts = '<option value="">' + esc('Whichever is fullest') + '</option>';
+    let opts = '<option value="">' + esc(ui('Whichever is fullest', 'Whichever is fullest')) + '</option>';
     for(const w of winsOf(p.id)){
       const selAttr = (ticked && sl.window === w.id) ? ' selected' : '';
       const pct = (w.used === null || w.used === undefined) ? '' : '  ' + w.used + '%';
@@ -984,8 +1076,8 @@ function renderNotch(){
   }
   host.innerHTML = html;
   const shown = on.map(sl => provLabel(sl.provider) + ' · ' + winLabel(sl.provider, sl.window));
-  note.textContent = 'Showing ' + shown.join('   |   ')
-    + '.  One provider always stays ticked, so the pill is never empty.';
+  note.textContent = ui('Showing', 'Showing') + ' ' + shown.join('   |   ')
+    + '.  ' + ui('One provider always stays ticked, so the pill is never empty.', 'One provider always stays ticked, so the pill is never empty.');
 }
 
 /* Everything ticked AND every window left on "fullest" is stored as an EMPTY list, not as four
@@ -999,7 +1091,7 @@ function saveNotch(next){
   notchSlots = store;
   renderNotch();
   invoke('set_notch_slots', { slots: store.map(sl => ({ provider:sl.provider, window:sl.window || '' })) })
-    .then(() => toast('Saved'))
+    .then(() => toast(ui('Saved', 'Saved')))
     .catch(e => {
       notchSlots = prev;     // nothing was saved, so put it back rather than show a lie
       renderNotch();
@@ -1016,7 +1108,7 @@ function toggleNotch(id){
     /* Unticking the last one is refused rather than saved. An empty list means "all" everywhere
        below this window, so saving one would switch every provider back on — the opposite of what
        the click asked for. Holding the last tick is the only unambiguous answer. */
-    if(on.length <= 1){ toast('At least one provider stays on the notch'); return; }
+    if(on.length <= 1){ toast(ui('At least one provider stays on the notch', 'At least one provider stays on the notch')); return; }
     on.splice(at, 1);
   } else {
     on.push({ provider:id, window:'' });
@@ -1053,7 +1145,7 @@ function clampPct(v){
     clearTimeout(scaleTimer);        // one save when the drag settles, not one per pixel
     scaleTimer = setTimeout(() => {
       invoke('set_scale', { scale: scalePct / 100 })
-        .then(() => toast('Saved'))
+        .then(() => toast(ui('Saved', 'Saved')))
         .catch(e => strip('set_scale failed: ' + errText(e)));
     }, 150);
   });
@@ -1062,7 +1154,7 @@ function clampPct(v){
 /* ---- the truth strip (built once) -------------------------------------- */
 (function buildTruth(){
   document.getElementById('truthstrip').innerHTML = [16, 20, 24].map(px =>
-    '<div class="truthcell"><img width="' + px + '" height="' + px + '" alt="Tray icon at ' + px + ' pixels">'
+    '<div class="truthcell"><img width="' + px + '" height="' + px + '" alt="' + esc(ui('Tray icon at', 'Tray icon at')) + ' ' + px + ' ' + esc(ui('pixels', 'pixels')) + '">'
     + '<span>' + px + ' px</span></div>'
   ).join('');
 })();
@@ -1112,12 +1204,13 @@ function saveFlags(wantNotch, wantTray){
       if(fix){
         fix.hidden = !corrected;
         if(corrected){
-          fix.textContent = 'The taskbar icon has been kept on. With the notch hidden it is the '
+          fix.textContent = ui('The taskbar icon has been kept on. With the notch hidden it is the '
             + 'only way left to open this window or to quit Codenotch, so Codenotch will not let '
-            + 'both of them be switched off at the same time.';
+            + 'both of them be switched off at the same time.',
+            'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Codenotch, so Codenotch will not let both of them be switched off at the same time.');
         }
       }
-      toast('Saved');
+      toast(ui('Saved', 'Saved'));
     })
     .catch(e => strip('set_ui_flags failed: ' + errText(e)))   // flags untouched: the switches spring back
     .then(() => { flagsBusy = false; renderFlags(); });
@@ -1157,7 +1250,7 @@ function remoteSwitch(id, getCmd, setCmd, label){
     invoke(setCmd, { on: want })
       .catch(e => strip(label + ' could not be changed: ' + errText(e)))
       .then(() => { busy = false; return refresh(); })
-      .then(() => { if(value === want) toast('Saved'); });
+      .then(() => { if(value === want) toast(ui('Saved', 'Saved')); });
   });
   return { refresh: refresh };
 }
@@ -1167,10 +1260,17 @@ const hooksSwitch = remoteSwitch('sw-hooks', 'get_hooks_installed', 'set_hooks_i
 /* ---- language ----------------------------------------------------------- */
 const LANGS = ['auto', 'en', 'zh', 'ja', 'ko', 'ru'];
 document.getElementById('lang').addEventListener('change', e => {
+  const previous = e.target.dataset.previous || 'auto';
   const v = LANGS.indexOf(e.target.value) >= 0 ? e.target.value : 'auto';
   invoke('set_lang', { lang: v })
-    .then(() => toast('Saved'))
-    .catch(err => strip('set_lang failed: ' + errText(err)));
+    .then(() => {
+      e.target.dataset.previous = v;
+      return setUiLanguageFromRaw(v).then(() => toast(ui('Saved', 'Saved')));
+    })
+    .catch(err => {
+      e.target.value = previous;
+      setUiLanguageFromRaw(previous).then(() => strip('set_lang failed: ' + errText(err)));
+    });
 });
 
 /* ---- about --------------------------------------------------------------- */
@@ -1179,7 +1279,7 @@ document.getElementById('btn-data').addEventListener('click', () => {
 });
 document.getElementById('btn-resetpos').addEventListener('click', () => {
   invoke('reset_notch_position')
-    .then(() => toast('The notch is back in the middle'))
+    .then(() => toast(ui('The notch is back in the middle', 'The notch is back in the middle')))
     .catch(e => strip('reset_notch_position failed: ' + errText(e)));
 });
 /* The number printed above is the one in tauri.conf.json, kept here so the page works with no
@@ -1197,6 +1297,7 @@ document.getElementById('btn-resetpos').addEventListener('click', () => {
 
 /* ---- start ------------------------------------------------------------- */
 function boot(){
+  setUiLanguage('auto');
   showTab(savedTab());
   render();   // draw something immediately, even if every command below fails
 
@@ -1237,9 +1338,15 @@ function boot(){
     renderFlags();
   });
 
-  call('get_lang', undefined, null).then(v => {
-    const l = (typeof v === 'string' && LANGS.indexOf(v) >= 0) ? v : 'auto';
+  Promise.all([
+    call('get_lang', undefined, 'auto'),
+    call('get_lang_resolved', undefined, 'en')
+  ]).then(([raw, resolved]) => {
+    const l = (typeof raw === 'string' && LANGS.indexOf(raw) >= 0) ? raw : 'auto';
+    const effective = l === 'auto' && typeof resolved === 'string' ? resolved : l;
     document.getElementById('lang').value = l;
+    document.getElementById('lang').dataset.previous = l;
+    setUiLanguage(effective);
   });
 
   autoSwitch.refresh();
