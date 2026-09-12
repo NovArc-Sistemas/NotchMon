@@ -18,9 +18,9 @@
 //!      The reset is **resets_at, absolute seconds** (the documented resets_in_seconds is accepted
 //!      too). This is the number from the *last run* — reading a file always succeeds instantly, so
 //!      the reading is marked stale by the line's own timestamp (> 5 min).
-//!   Upstream finds the newest rollout through the thread index in state_5.sqlite; this port walks
-//!   the dated directories newest-first and picks by mtime, with no SQLite involved (and none of
-//!   the immutable/WAL pitfalls).
+//!      Upstream finds the newest rollout through the thread index in state_5.sqlite; this port
+//!      walks the dated directories newest-first and picks by mtime, with no SQLite involved (and
+//!      none of the immutable/WAL pitfalls).
 //!
 //! Credentials are borrowed, never managed: the numbers come from Codex's own sign-in and Codex's
 //! own endpoint. No sign-in and no session history at all means absent (no cell is shown).

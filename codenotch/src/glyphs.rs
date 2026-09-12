@@ -4,8 +4,9 @@
 //!   1. User override: `%APPDATA%\codenotch\glyphs\<id>.svg|.png`, or `glyphs\` next to the exe;
 //!   2. Built in: the `glyphs/*.svg` compiled into the exe, from npm `@lobehub/icons-static-svg`
 //!      1.95.0 (MIT), files unmodified; trademark notice in glyphs/NOTICE.md;
-//!   3. The installed application's own icon (PrivateExtractIconsW on the exe resources, 64 px → PNG);
-//!   none of those → the page falls back to a letter.
+//!   3. The installed application's own icon (PrivateExtractIconsW on the exe resources, 64 px → PNG).
+//!
+//! None of those → the page falls back to a letter.
 //! SVGs are inlined into the DOM as text (`fill="currentColor"` follows the CSS white/dimmed state);
 //! PNGs and app icons go through <img>. Ids match the page and upstream: claude / codex / cursor / gemini.
 
