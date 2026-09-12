@@ -17,6 +17,7 @@
 //!   - Antigravity: transcript.jsonl is appended during a run (each step is written only once it
 //!     completes, so status is always DONE and useless); written within the last 45 s = working
 //!     (the model can think for a long time between steps, hence the wide window).
+//!
 //! Polled every 2 s (upstream cadence), broadcast only on change. Cost discipline: database
 //! connections stay open, nothing is re-queried unless the file's mtime changed, the rollout tail
 //! is re-read only when its mtime changed, PowerShell runs only occasionally to find the network
