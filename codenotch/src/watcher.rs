@@ -104,7 +104,7 @@ pub fn roots() -> Vec<PathBuf> {
 
 /// Accept only real session transcripts: inside a .claude tree, excluding audit logs and sub-agents
 pub fn is_session_jsonl(p: &Path) -> bool {
-    if p.extension().map(|e| e == "jsonl").unwrap_or(false) == false {
+    if !p.extension().map(|e| e == "jsonl").unwrap_or(false) {
         return false;
     }
     let name = p.file_name().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
