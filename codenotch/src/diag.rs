@@ -1,6 +1,6 @@
 //! `codenotch.exe doctor deep`: deep diagnostics for finding "is it working?" signals.
-//! Prints only structure, times and very short scalars; long strings are reported as lengths, so no
-//! token or conversation content ever appears.
+//! Prints only structure, times and scalar types/lengths — never a scalar value itself, and never
+//! a process command line, so no token or conversation content ever appears (#160).
 
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -35,24 +35,21 @@ fn recent_files(root: &Path, depth: usize, within_s: u64, out: &mut Vec<(u64, Pa
     }
 }
 
+/// One SQLite value as type and size only, never the value: even a short text can hold a token or
+/// id, so no length threshold may reveal one (#160).
 fn short(v: &rusqlite::types::Value) -> String {
     use rusqlite::types::Value::*;
     match v {
-        Null => "NULL".into(),
-        Integer(i) => i.to_string(),
-        Real(f) => format!("{f}"),
-        Text(t) => {
-            if t.len() > 60 {
-                format!("<text {} chars>", t.len())
-            } else {
-                format!("{t:?}")
-            }
-        }
+        Null => "<null>".into(),
+        Integer(_) => "<integer>".into(),
+        Real(_) => "<real>".into(),
+        Text(t) => format!("<text {} chars>", t.len()),
         Blob(b) => format!("<blob {} bytes>", b.len()),
     }
 }
 
-/// Structure of one SQLite database plus, per table, the newest row by a time-like column (short values)
+/// Structure of one SQLite database plus, per table, the newest row by a time-like column (each
+/// value reduced to its type/length; column names are kept)
 fn dump_sqlite(path: &Path) -> String {
     use rusqlite::OpenFlags;
     let mut o = format!("--- {} ({}, modified {}s ago)\n", path.display(), if path.is_file() { "present" } else { "missing" }, now_ms().saturating_sub(mtime_ms(path).unwrap_or(0)) / 1000);
@@ -105,7 +102,8 @@ fn dump_sqlite(path: &Path) -> String {
     o
 }
 
-/// JSON file: prints only scalar keys (short strings/numbers/booleans); long strings as lengths, nested values as their type
+/// JSON file: prints dotted keys with each value reduced to its type (and length for strings/
+/// containers) — never a scalar value itself, so a short token cannot slip through (#160)
 fn dump_json_scalars(path: &Path) -> String {
     let mut o = format!("--- {} (modified {}s ago)\n", path.display(), now_ms().saturating_sub(mtime_ms(path).unwrap_or(0)) / 1000);
     let Ok(t) = std::fs::read_to_string(path) else {
@@ -124,14 +122,38 @@ fn dump_json_scalars(path: &Path) -> String {
                     serde_json::Value::Object(_) if depth < 2 => walk(x, &key, depth + 1, o),
                     serde_json::Value::Object(m) => o.push_str(&format!("  {key}: <object {} keys>\n", m.len())),
                     serde_json::Value::Array(a) => o.push_str(&format!("  {key}: <array {}>\n", a.len())),
-                    serde_json::Value::String(s) if s.len() > 40 => o.push_str(&format!("  {key}: <string {} chars>\n", s.len())),
-                    other => o.push_str(&format!("  {key}: {other}\n")),
+                    serde_json::Value::String(s) => o.push_str(&format!("  {key}: <string {} chars>\n", s.len())),
+                    serde_json::Value::Number(_) => o.push_str(&format!("  {key}: <number>\n")),
+                    serde_json::Value::Bool(_) => o.push_str(&format!("  {key}: <bool>\n")),
+                    serde_json::Value::Null => o.push_str(&format!("  {key}: <null>\n")),
                 }
             }
         }
     }
     walk(&v, "", 0, &mut o);
     o
+}
+
+/// The PowerShell process query: a WQL projection of PID and process name only, so `CommandLine`
+/// is never even fetched — it can carry tokens, secrets and file paths, and #160 keeps it out of
+/// diagnostics entirely rather than truncating it (`-Filter` alone would still materialize it).
+#[cfg_attr(not(windows), allow(dead_code))]
+fn process_query() -> &'static str {
+    "Get-CimInstance -Query \"SELECT ProcessId, Name FROM Win32_Process WHERE Name LIKE 'codex%' OR Name LIKE 'ChatGPT%'\" | ForEach-Object { \"$($_.ProcessId)`t$($_.Name)\" }"
+}
+
+/// One `PID<TAB>Name` line of the query output as `PID  Name`. Only those two fields are kept:
+/// anything past the name's tab (a command line, should the query ever widen again) is dropped
+/// here too, so arguments cannot reach the report even by accident.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn format_process_line(line: &str) -> Option<String> {
+    let mut fields = line.split('\t');
+    let pid = fields.next()?.trim();
+    let name = fields.next()?.trim();
+    if pid.is_empty() || name.is_empty() {
+        return None;
+    }
+    Some(format!("{pid}  {name}"))
 }
 
 pub fn run() -> String {
@@ -171,7 +193,7 @@ pub fn run() -> String {
         o += &dump_sqlite(&home.join(".codex").join(rel));
     }
 
-    o += "\n## Codex global state JSON (scalar keys only)\n";
+    o += "\n## Codex global state JSON (keys with type/length only)\n";
     o += &dump_json_scalars(&home.join(".codex").join(".codex-global-state.json"));
 
     o += "\n## Last line of Codex session_index.jsonl (key names)\n";
@@ -187,24 +209,110 @@ pub fn run() -> String {
         }
     }
 
-    o += "\n## Codex processes (first 120 characters of the command line)\n";
+    o += "\n## Codex processes (pid and process name; command lines are never read)\n";
     #[cfg(windows)]
     {
         let mut cmd = std::process::Command::new("powershell");
-        cmd.args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            "Get-CimInstance Win32_Process -Filter \"Name LIKE 'codex%' OR Name LIKE 'ChatGPT%'\" | ForEach-Object { \"$($_.ProcessId)`t$($_.Name)`t$($_.CommandLine)\" }",
-        ]);
+        cmd.args(["-NoProfile", "-NonInteractive", "-Command", process_query()]);
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x0800_0000);
         if let Ok(out) = cmd.output() {
             for l in String::from_utf8_lossy(&out.stdout).lines() {
-                let l: String = l.chars().take(160).collect();
-                o += &format!("  {l}\n");
+                if let Some(l) = format_process_line(l) {
+                    o += &format!("  {l}\n");
+                }
             }
         }
     }
     o
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{dump_json_scalars, dump_sqlite, format_process_line, process_query, short};
+
+    /// #160's rule: no scalar is safe merely because it is short.
+    const SECRET: &str = "sk-ant-api03-topsecret";
+
+    #[test]
+    fn sqlite_values_render_as_type_and_length_only() {
+        let t = short(&rusqlite::types::Value::Text(SECRET.into()));
+        assert!(!t.contains(SECRET), "text value must not appear: {t}");
+        assert_eq!(t, format!("<text {} chars>", SECRET.len()));
+
+        let i = short(&rusqlite::types::Value::Integer(987654321));
+        assert!(!i.contains("987654321"), "integer value must not appear: {i}");
+        assert_eq!(i, "<integer>");
+
+        let r = short(&rusqlite::types::Value::Real(123.456789));
+        assert!(!r.contains("123.456789"), "real value must not appear: {r}");
+        assert_eq!(r, "<real>");
+
+        assert_eq!(short(&rusqlite::types::Value::Null), "<null>");
+        assert_eq!(short(&rusqlite::types::Value::Blob(vec![1, 2, 3])), "<blob 3 bytes>");
+    }
+
+    /// End to end through dump_sqlite: column names and the newest row's structure stay, its
+    /// values do not.
+    #[test]
+    fn dump_sqlite_keeps_columns_but_not_values() {
+        let path = std::env::temp_dir().join(format!("codenotch-diag-{}-sqlite.db", std::process::id()));
+        let _ = std::fs::remove_file(&path); // a recycled pid must not see a stale table
+        {
+            let conn = rusqlite::Connection::open(&path).unwrap();
+            conn.execute("CREATE TABLE t (secret TEXT, updated_at INTEGER)", []).unwrap();
+            conn.execute("INSERT INTO t VALUES (?1, ?2)", [SECRET, "987654321"]).unwrap();
+        }
+        let out = dump_sqlite(&path);
+        let _ = std::fs::remove_file(&path);
+
+        assert!(out.contains("secret") && out.contains("updated_at"), "column names must stay:\n{out}");
+        assert!(!out.contains(SECRET), "cell value must not appear:\n{out}");
+        assert!(!out.contains("987654321"), "cell value must not appear:\n{out}");
+        assert!(out.contains(&format!("<text {} chars>", SECRET.len())), "type/length must stay:\n{out}");
+    }
+
+    /// End to end through dump_json_scalars: dotted keys, types, lengths and container sizes stay;
+    /// scalar values do not.
+    #[test]
+    fn json_scalars_render_as_type_and_length_only() {
+        let path = std::env::temp_dir().join(format!("codenotch-diag-{}-state.json", std::process::id()));
+        std::fs::write(
+            &path,
+            format!(r#"{{"token":"{SECRET}","port":987654321,"darkMode":true,"absent":null,"windows":[1,2],"nested":{{"password":"hunter2"}}}}"#),
+        )
+        .unwrap();
+        let out = dump_json_scalars(&path);
+        let _ = std::fs::remove_file(&path);
+
+        assert!(!out.contains(SECRET), "string value must not appear:\n{out}");
+        assert!(!out.contains("987654321"), "number value must not appear:\n{out}");
+        assert!(!out.contains("hunter2"), "nested string value must not appear:\n{out}");
+        assert!(!out.contains("true"), "boolean value must not appear:\n{out}");
+        assert!(out.contains(&format!("token: <string {} chars>", SECRET.len())), "key/type/length must stay:\n{out}");
+        assert!(out.contains("port: <number>"), "key/type must stay:\n{out}");
+        assert!(out.contains("darkMode: <bool>"), "key/type must stay:\n{out}");
+        assert!(out.contains("absent: <null>"), "key/type must stay:\n{out}");
+        assert!(out.contains("windows: <array 2>"), "key/size must stay:\n{out}");
+        assert!(out.contains("nested.password: <string 7 chars>"), "dotted key/type/length must stay:\n{out}");
+    }
+
+    /// Even a line that somehow carried a third field (a command line) keeps only pid and name.
+    #[test]
+    fn process_lines_keep_pid_and_name_but_drop_arguments() {
+        let line = format_process_line(&format!("4242\tcodex.exe\tcodex.exe --token {SECRET}"))
+            .expect("a pid<TAB>name line formats");
+        assert_eq!(line, "4242  codex.exe");
+
+        assert_eq!(format_process_line(""), None);
+        assert_eq!(format_process_line("garbage without tabs"), None);
+    }
+
+    #[test]
+    fn the_process_query_never_requests_command_lines() {
+        let q = process_query();
+        // PowerShell property names are case-insensitive, so no casing of "commandline" may appear
+        assert!(!q.to_lowercase().contains("commandline"), "the query must not request CommandLine:\n{q}");
+        assert!(q.contains("ProcessId") && q.contains("$($_.Name)"), "pid and name must be selected:\n{q}");
+    }
 }
