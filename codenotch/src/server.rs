@@ -39,7 +39,7 @@ pub fn start(app: AppHandle, port: u16) {
 }
 
 fn query_param(url: &str, key: &str) -> String {
-    let q = url.splitn(2, '?').nth(1).unwrap_or("");
+    let q = url.split_once('?').map(|x| x.1).unwrap_or("");
     for pair in q.split('&') {
         let mut it = pair.splitn(2, '=');
         if it.next() == Some(key) {

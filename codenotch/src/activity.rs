@@ -182,7 +182,7 @@ fn cursor_activity(ctx: &mut Ctx) -> Vec<Activity> {
                 since,
             });
         }
-        out.sort_by(|a, b| b.since.cmp(&a.since));
+        out.sort_by_key(|a| std::cmp::Reverse(a.since));
         Some(out)
     })
 }
@@ -435,7 +435,7 @@ fn claude_io_bytes() -> Option<(u64, u64)> {
     let mut other = 0u64;
     let mut read = 0u64;
     let mut n = 0;
-    for (pid, _name) in maps.name.iter() {
+    for pid in maps.name.keys() {
         if *pid != net_pid {
             continue;
         }
@@ -595,7 +595,7 @@ pub fn start(app: AppHandle) {
         let mut tick: u32 = 0;
         loop {
             // Presence checks (finding the exe, reading credentials) once a minute are plenty; the 2 s tick does only stats and a query
-            if tick % 30 == 0 {
+            if tick.is_multiple_of(30) {
                 pres = presence();
             }
             tick = tick.wrapping_add(1);

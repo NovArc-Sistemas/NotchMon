@@ -351,7 +351,7 @@ fn read_credential_raw() -> Option<Vec<u8>> {
 fn decode_credential(raw: &[u8]) -> Option<Creds> {
     let mut text = String::from_utf8(raw.to_vec()).unwrap_or_else(|_| {
         // Some writers store the blob as UTF-16LE
-        let u16s: Vec<u16> = raw.chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+        let u16s: Vec<u16> = raw.as_chunks::<2>().0.iter().map(|c| u16::from_le_bytes(*c)).collect();
         String::from_utf16_lossy(&u16s)
     });
     text = text.trim_matches('\0').trim().to_string();
