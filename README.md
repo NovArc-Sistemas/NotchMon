@@ -43,8 +43,10 @@ cargo build --release
 .\target\release\codenotch.exe doctor   # self-diagnosis: credentials, data sources, icons, hooks
 ```
 
-Tray menu: refresh now, reset position, open data folder (`%APPDATA%\codenotch` — logs,
-persisted readings, icon overrides), start with Windows, install/uninstall Claude Code hooks.
+Tray menu: **Settings…**, **Refresh usage now**, **Quit**. Everything else is in the settings
+window: the taskbar icon, which rings the notch shows, its size, start with Windows, the
+language, Claude Code hooks, reset position, and the data folder (`%APPDATA%\codenotch` —
+logs, persisted readings, icon overrides).
 
 ### Icons
 
@@ -59,10 +61,15 @@ The marks remain the trademarks of their owners.
 .
 ├── codenotch/          Tauri 2 app: window, tray, providers (usage.rs, codex.rs, cursor.rs, antigravity.rs),
 │   ├── src/            session engine (watcher.rs, state.rs, focus.rs), glyphs.rs, doctor.rs
-│   ├── ui/notch.html   the pill + hover card (single file, no framework)
+│   ├── ui/             notch.html — the pill + hover card; settings.html — the settings window
+│   │                   (both single files, no framework)
 │   └── glyphs/         provider marks (+ NOTICE.md)
 └── codenotch-hook/     <5 ms hook messenger Claude Code calls; forwards events to the app
 ```
+
+A pull request that touches `windows/` builds this tree and runs its tests and clippy:
+[`.github/workflows/windows.yml`](../.github/workflows/windows.yml). It is skipped inside
+forks, so the check appears once the pull request is open here.
 
 ## Relationship to upstream
 
