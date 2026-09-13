@@ -239,9 +239,7 @@ function glyphHtml(p,small){
   return small?'':p.glyph; // fallback letter
 }
 // Provider table (order = top to bottom in the pill). `glyph` is the fallback letter used when no mark is available
-// What each ring shows: [{provider, window}]. null or an empty list means every provider, each
-// showing whichever of its windows is fullest, which is the original behaviour and the default.
-// An empty `window` on a slot means the same "fullest" rule for that one provider.
+// Which providers get a ring: [{provider}]. null or an empty list means every provider.
 let notchSlots=null;
 function slotFor(id){
   if(!Array.isArray(notchSlots)) return null;
@@ -261,18 +259,27 @@ function providers(){
   }
   return list;
 }
+// Antigravity's "Notch reads" and "Model data", as in the Mac app; chosen in settings
+let agPrefs={limit:'automatic',model:'gemini'};
+// The tightest metered window, ties going to the lower id so the choice never flickers
+function tightestOf(ws){
+  return ws.filter(w=>w.count==null).reduce((a,b)=>!a||b.used>a.used||(b.used===a.used&&b.id<a.id)?b:a,null);
+}
+function laneFamily(w){ const id=w.id.toLowerCase(); return id.startsWith('gemini')?'gemini':(id.startsWith('3p')||id.startsWith('claude'))?'3p':''; }
+function laneIs(w,limit){
+  const t=(w.id+' '+w.label).toLowerCase();
+  return limit==='weekly'?t.includes('weekly'):['5h','5-hour','five hour','five-hour','hourly','session'].some(k=>t.includes(k));
+}
+// The window a provider's ring shows: the same rule as ring_window in main.rs, which draws the tray
 function headlineOf(snap,id){
-  if(!snap.windows.length) return null;
-  const metered=snap.windows.filter(w=>w.count==null);
-  // A ring can be pinned to one window in settings; falling back to the fullest keeps working if
-  // that window disappears, rather than leaving the ring blank.
-  const slot=id?slotFor(id):null;
-  if(slot&&slot.window){
-    const pinned=metered.filter(w=>w.id===slot.window);
-    if(pinned.length) return pinned[0];
-  }
-  if(metered.length) return metered.reduce((a,b)=> b.used>a.used?b:a);
-  return snap.windows[0];
+  const ws=snap.windows; if(!ws.length) return null;
+  const byId=x=>ws.find(w=>w.id===x)||null;
+  if(id==='claude') return byId('session');
+  if(id==='codex') return ws[0];
+  if(id==='cursor') return byId('included')||byId('api');
+  const fam=ws.filter(w=>laneFamily(w)===agPrefs.model), lanes=fam.length?fam:ws;
+  if(agPrefs.limit!=='automatic'){ const w=tightestOf(lanes.filter(w=>laneIs(w,agPrefs.limit))); if(w) return w; }
+  return tightestOf(lanes.filter(w=>w.used<1))||tightestOf(lanes)||lanes[0];
 }
 function staleOf(snap){ if(snap.status==='stale') return true; return snap.fetched_at>0 && (Date.now()-snap.fetched_at)>5*60*1000; }
 let stateSnap={sessions:[],agg:'idle'};
@@ -282,11 +289,6 @@ function svgArc(r,frac,color,width,extra=''){
   return `<circle cx="28" cy="28" r="${r}" fill="none" stroke="${color}" stroke-width="${width}"
     stroke-dasharray="${(C*frac).toFixed(2)} ${C.toFixed(2)}" stroke-linecap="butt"
     transform="rotate(-90 28 28)" ${extra}/>`;
-}
-
-function headline(){ // the cell shows the most constrained window — the one that will stop you first
-  if(!usage.windows.length) return null;
-  return usage.windows.reduce((a,b)=> b.used>a.used?b:a);
 }
 
 function isStale(){
@@ -319,7 +321,7 @@ function renderRing(){
     if(p.snap.status==='needsAuth'||p.snap.status==='none') pct.textContent='—';
     else if(h && h.count!=null) pct.textContent='~'+h.count;
     else if(h) pct.textContent=(h.derived?'~':'')+Math.round(h.used*100)+'%';
-    else pct.textContent='…';
+    else pct.textContent=p.snap.windows.length?'—':'…'; // its declared window is missing: a dash, not a wait
     glyph.classList.toggle('dim', !!(h && h.used>=1));
     wrap.classList.toggle('dim', staleOf(p.snap));
   }
@@ -578,6 +580,8 @@ listen('notch_slots',e=>{
   renderRing();
   if(card.classList.contains('show')){renderCard();armWatchdog();}
 }).catch(()=>{});
+invoke('get_antigravity_prefs').then(p=>{if(p){agPrefs=p;renderRing();}}).catch(()=>{});
+listen('antigravity_prefs',e=>{if(e.payload){agPrefs=e.payload;renderRing();}}).catch(()=>{});
 listen('glyphs',e=>{glyphs=e.payload||glyphs;renderRing();if(card.classList.contains('show'))renderCard();}).catch(()=>{});
 listen('activity',e=>{activity=e.payload||activity;renderRing();if(card.classList.contains('show'))renderCard();}).catch(()=>{});
 invoke('get_activity').then(a=>{activity=a||activity;renderRing();}).catch(()=>{});

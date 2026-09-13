@@ -194,9 +194,6 @@
   .picker{margin-top:14px;border-top:1px solid #1e1e1e;padding-top:12px}
   .p-head{font-size:11px;color:#808080;margin-bottom:8px}
   .p-head b{color:#e8e8ea}
-  .p-prov{margin-bottom:10px}
-  .p-prov-head{display:flex;align-items:baseline;gap:8px;padding:0 2px 4px;flex-wrap:wrap}
-  .p-prov-name{font-size:12px;font-weight:700;color:#e8e8ea}
   .p-status{font-size:10px;color:#808080;margin-left:auto;white-space:nowrap}
   .p-status.warn{color:#facc15}
   .p-item{
@@ -208,16 +205,14 @@
   .p-item.on{border-color:#8a8a8a;background:#1c1c1c}
   .p-item:focus-visible{outline:1px solid #8a8a8a;outline-offset:1px}
   .p-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-  .p-any{color:#c8c8c8;font-style:italic}
   .p-pct{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:#b0b0b3;font-variant-numeric:tabular-nums;white-space:nowrap}
   .p-dot{width:7px;height:7px;border-radius:4px;flex:0 0 auto}
   .p-tick{width:12px;flex:0 0 auto;color:#fff;font-size:11px}
-  .p-empty{font-size:11px;color:#808080;padding:2px 2px 6px}
 
   /* Notch providers — the picker's rows again, ticked rather than chosen */
   .np-list{margin-top:12px}
   .np-row{margin-bottom:10px}
-  .np-win{width:100%;margin-top:4px}
+  .np-ag{display:flex;align-items:center;gap:8px;margin:6px 0 0 29px;font-size:11px;color:#808080}
   .np-right{margin-left:auto;display:flex;align-items:center;gap:8px;white-space:nowrap;min-width:0}
   .np-right .p-status{margin-left:0}
   .np-lock{font-size:10px;color:#808080;font-style:italic}
@@ -300,7 +295,7 @@
 
       <div class="block">
         <div class="b-head">What each part shows</div>
-        <div class="b-sub">Pick the tool, then the usage window you want drawn there.</div>
+        <div class="b-sub">Pick the tool; each part draws that tool's ring.</div>
         <div class="picker" id="picker"></div>
       </div>
     </section>
@@ -312,7 +307,7 @@
 
       <div class="block first">
         <div class="b-head">What appears on the pill</div>
-        <div class="b-sub">Click a name to switch its ring on or off. The list underneath each name chooses which usage window that ring counts.</div>
+        <div class="b-sub">Click a name to switch its ring on or off.</div>
         <div class="np-list" id="notch-list"></div>
         <div class="c-note dim" id="notch-note" style="margin-top:6px"></div>
       </div>
@@ -500,9 +495,9 @@ const RU_STATIC = {
   'The plain Codenotch logo is used.':'Используется обычный логотип Codenotch.', 'No numbers are drawn.':'Числа не отображаются.',
   'Actual size':'Фактический размер', 'This is how big it really is in the taskbar.':'Такой размер значок имеет в панели задач.',
   'Windows picks one of these depending on the display. If a number is unreadable here, it will be unreadable in the taskbar.':'Windows выбирает один из вариантов в зависимости от масштаба экрана. Если число не читается здесь, в панели задач оно тоже не будет читаться.',
-  'What each part shows':'Что показывает каждая часть', 'Pick the tool, then the usage window you want drawn there.':'Выберите инструмент, затем окно использования для этой части.',
+  'What each part shows':'Что показывает каждая часть', 'Pick the tool; each part draws that tool\'s ring.':'Выберите инструмент: каждая часть показывает его кольцо.',
   'The small black pill that floats against the right-hand edge of the screen. Each tool you tick gets one ring on it.':'Небольшая чёрная панель у правого края экрана. Каждый выбранный инструмент получает на ней своё кольцо.',
-  'What appears on the pill':'Что отображается на панели', 'Click a name to switch its ring on or off. The list underneath each name chooses which usage window that ring counts.':'Нажмите на название, чтобы включить или выключить кольцо. В списке под названием выбирается окно использования для этого кольца.',
+  'What appears on the pill':'Что отображается на панели', 'Click a name to switch its ring on or off.':'Нажмите на название, чтобы включить или выключить кольцо.',
   'Size':'Размер', 'How big the pill is drawn. The same slider sits at the foot of the pill\'s hover card, so it can be changed from either place.':'Размер панели. Такой же ползунок находится внизу карточки при наведении на панель.',
   'Whether the pill is on screen at all is a separate switch, under General → Behaviour.':'Видимость панели переключается отдельно в разделе «Общие → Поведение».',
   'When Codenotch runs, and what it puts on your screen.':'Когда запускается Codenotch и что он показывает на экране.',
@@ -516,9 +511,10 @@ const RU_STATIC = {
   'Files':'Файлы', 'Data folder':'Папка данных', 'Open folder':'Открыть папку', 'If something looks wrong':'Если что-то работает неправильно',
   'Put the notch back':'Вернуть панель', 'Reset position':'Сбросить положение', 'Saved':'Сохранено',
   'Numbers':'Числа', 'two readings':'два показания', 'Bars':'Полосы', '1 to 5 columns':'от 1 до 5 столбцов', 'Plain icon':'Обычный значок', 'just the logo':'только логотип',
-  'Whichever is fullest':'Самое заполненное', 'No windows reported':'Нет доступных окон', 'kept':'оставлено', 'Showing':'Показывается', 'Showing in':'Показывается в',
-  '"Whichever is fullest" starts working as soon as it reports one.':'«Самое заполненное» начнёт работать, как только появится окно использования.',
-  '"%@" is no longer available':'«%@» больше недоступен', '%@ no longer reports "%@"':'%@ больше не сообщает «%@»', '%@ — that slot now shows whichever window is fullest.':'%@ — теперь слот показывает самое заполненное окно.',
+  'kept':'оставлено', 'Showing':'Показывается', 'Showing in':'Показывается в',
+  'Notch reads':'Показания панели', 'Automatic':'Автоматически', '5-Hour Limit':'Лимит на 5 часов', 'Weekly Limit':'Недельный лимит',
+  'Gemini Models':'Модели Gemini', 'Claude and GPT models':'Модели Claude и GPT',
+  '"%@" is no longer available':'«%@» больше недоступен', '%@ — that slot now shows another provider.':'%@ — теперь слот показывает другого провайдера.',
   'One provider always stays ticked, so the pill is never empty.':'Хотя бы один провайдер всегда выбран, поэтому панель не бывает пустой.',
   'The taskbar icon shows the plain Codenotch logo.':'Значок в панели задач показывает обычный логотип Codenotch.',
   'Choose Numbers or Bars above to draw your usage into it.':'Выберите выше «Числа» или «Полосы», чтобы показывать в нём использование.',
@@ -710,22 +706,13 @@ function provLabel(id){
   const p = provOf(id);
   return (p && p.label) || FALLBACK_LABEL[id] || id;
 }
-function winsOf(id){
-  const p = provOf(id);
-  return (p && Array.isArray(p.windows)) ? p.windows : [];
-}
-function winLabel(pid, wid){
-  if(!wid) return ui('Whichever is fullest', 'Whichever is fullest');
-  const w = winsOf(pid).find(x => x.id === wid);
-  return w ? w.label : wid;
-}
 /* THE one source of truth for who the providers are: whatever get_tray_options answered, and the
    fallback names only until it does. The tray picker and the Notch section both read this list, so
    a provider is never named twice in this file. */
 function providerList(){
   return options.length
     ? options
-    : ORDER.map(id => ({ id, label:FALLBACK_LABEL[id], status:'', windows:[] }));
+    : ORDER.map(id => ({ id, label:FALLBACK_LABEL[id], status:'', used:null }));
 }
 /* The one place a status code turns into words ("not signed in"), shared for the same reason. */
 function statusText(p){
@@ -734,11 +721,11 @@ function statusText(p){
 }
 
 /* Which provider to reach for when a slot has to be invented or repaired: one that is actually
-   reporting windows first, then one that is at least healthy, then anything. */
+   reporting a number first, then one that is at least healthy, then anything. */
 function pickProvider(taken){
   const pool = providerList();
   const rank = o => {
-    const has = o.windows && o.windows.length ? 0 : 2;
+    const has = o.used != null ? 0 : 2;
     const ok = o.status === 'ok' ? 0 : 1;
     return has + ok;
   };
@@ -747,32 +734,21 @@ function pickProvider(taken){
   return list.length ? list[0].id : 'claude';
 }
 function defaultSlot(existing){
-  return { provider: pickProvider(existing.map(s => s.provider)), window: '' };
+  return { provider: pickProvider(existing.map(s => s.provider)) };
 }
 
 /* ---- configuration repair ----------------------------------------------
-   A saved slot can point at a provider that no longer exists, or at a window id a provider has
-   stopped reporting. Both fall back to "whichever is fullest" rather than breaking the icon.
-   One deliberate exception: when a provider reports NO windows at all (not signed in, say), the
-   stored window id is left alone — it is not evidence the choice is wrong, and throwing it away
-   would quietly lose the user's preference while they are signed out. */
+   A saved slot can point at a provider that no longer exists; it is replaced rather than left to
+   break the icon. */
 function fixSlot(s, notes){
   if(!s || typeof s !== 'object' || typeof s.provider !== 'string' || !s.provider){
-    return { provider: pickProvider([]), window: '' };
+    return { provider: pickProvider([]) };
   }
-  const provider = s.provider;
-  let win = typeof s.window === 'string' ? s.window : '';   // not named `window`: that is the global
-  if(options.length && !provOf(provider)){
-    notes.push(ui('"%@" is no longer available', '"%@" is no longer available').replace('%@', provider));
-    return { provider: pickProvider([]), window: '' };
+  if(options.length && !provOf(s.provider)){
+    notes.push(ui('"%@" is no longer available', '"%@" is no longer available').replace('%@', s.provider));
+    return { provider: pickProvider([]) };
   }
-  const wins = winsOf(provider);
-  if(win && win !== 'top' && wins.length && !wins.some(w => w.id === win)){
-    notes.push(ui('%@ no longer reports "%@"', '%@ no longer reports "%@"').replace('%@', provLabel(provider)).replace('%@', win));
-    win = '';
-  }
-  if(win === 'top') win = '';   // the Rust side treats "top" as "fullest"; store the plain form
-  return { provider: provider, window: win };
+  return { provider: s.provider };
 }
 function normalize(){
   if(['numbers', 'bars', 'off'].indexOf(cfg.mode) < 0) cfg.mode = 'off';
@@ -788,12 +764,12 @@ function normalize(){
   cfg.slots = slots;
   if(sel >= cfg.slots.length) sel = cfg.slots.length - 1;
   if(sel < 0) sel = 0;
-  repairNote = notes.length ? ui('%@ — that slot now shows whichever window is fullest.', '%@ — that slot now shows whichever window is fullest.').replace('%@', notes[0]) : '';
+  repairNote = notes.length ? ui('%@ — that slot now shows another provider.', '%@ — that slot now shows another provider.').replace('%@', notes[0]) : '';
 }
 
 /* ---- saving ------------------------------------------------------------ */
 function payload(){
-  return { mode: cfg.mode, slots: cfg.slots.map(s => ({ provider:s.provider, window:s.window })) };
+  return { mode: cfg.mode, slots: cfg.slots.map(s => ({ provider:s.provider })) };
 }
 function persist(quiet){
   invoke('set_tray_config', { cfg: payload() })
@@ -869,7 +845,7 @@ function renderRegions(){
   boxes.forEach((b, i) => {
     html += '<button class="region' + (i === sel ? ' on' : '') + '" data-i="' + i + '"'
       + ' style="left:' + b.left.toFixed(3) + '%;top:' + b.top + '%;width:' + b.width.toFixed(3) + '%;height:' + b.height + '%"'
-      + ' title="' + esc(slotName(i) + ': ' + provLabel(cfg.slots[i].provider) + ' — ' + winLabel(cfg.slots[i].provider, cfg.slots[i].window)) + '"'
+      + ' title="' + esc(slotName(i) + ': ' + provLabel(cfg.slots[i].provider)) + '"'
       + ' aria-label="' + esc(slotName(i)) + '" aria-pressed="' + (i === sel) + '">'
       + '<span class="r-num">' + (i + 1) + '</span></button>';
   });
@@ -903,7 +879,7 @@ function renderChips(){
   if(cfg.mode === 'off'){ host.innerHTML = ''; return; }
   let html = '';
   cfg.slots.forEach((s, i) => {
-    const text = provLabel(s.provider) + ' · ' + winLabel(s.provider, s.window);
+    const text = provLabel(s.provider);
     html += '<span class="chip' + (i === sel ? ' on' : '') + '">'
       + '<button class="chip-pick" data-chip="' + i + '" aria-pressed="' + (i === sel) + '">'
       + '<b>' + esc(slotName(i)) + '</b><span class="ctext">' + esc(text) + '</span></button>'
@@ -926,48 +902,28 @@ function renderPicker(){
       + esc(ui('Choose Numbers or Bars above to draw your usage into it.', 'Choose Numbers or Bars above to draw your usage into it.')) + '</div>';
     return;
   }
-  const cur = cfg.slots[sel] || { provider:'', window:'' };
+  const cur = cfg.slots[sel] || { provider:'' };
   let html = '<div class="p-head">' + esc(ui('Showing in', 'Showing in')) + ' <b>' + esc(slotName(sel)) + '</b>: '
-    + esc(provLabel(cur.provider) + ' — ' + winLabel(cur.provider, cur.window)) + '</div>';
+    + esc(provLabel(cur.provider)) + '</div>';
   if(repairNote) html += '<div class="c-note dim" style="margin-bottom:8px">' + esc(repairNote) + '</div>';
 
-  const list = providerList();
-
-  for(const p of list){
-    const st = statusText(p);
-    html += '<div class="p-prov"><div class="p-prov-head"><span class="p-prov-name">' + esc(p.label || p.id) + '</span>'
-      + (st ? '<span class="p-status warn">' + esc(st) + '</span>' : '') + '</div>';
-
-    // Always first, always available: the choice that survives a provider changing its windows.
-    const anyOn = cur.provider === p.id && !cur.window;
-    html += '<button class="p-item' + (anyOn ? ' on' : '') + '" data-p="' + esc(p.id) + '" data-w="">'
-      + '<span class="p-tick">' + (anyOn ? '&#10003;' : '') + '</span>'
-      + '<span class="p-label p-any">' + esc(ui('Whichever is fullest', 'Whichever is fullest')) + '</span></button>';
-
-    const wins = Array.isArray(p.windows) ? p.windows : [];
-    if(!wins.length){
-      html += '<div class="p-empty">' + esc(ui('No windows reported', 'No windows reported'))
-        + (st ? ' — ' + esc(st) + '.' : '.')
-        + ' ' + esc(ui('"Whichever is fullest" starts working as soon as it reports one.', '"Whichever is fullest" starts working as soon as it reports one.')) + '</div>';
-    }
-    for(const w of wins){
-      const on = cur.provider === p.id && cur.window === w.id;
-      const pct = (typeof w.used === 'number' && isFinite(w.used)) ? Math.round(w.used) : null;
-      html += '<button class="p-item' + (on ? ' on' : '') + '" data-p="' + esc(p.id) + '" data-w="' + esc(w.id) + '">'
-        + '<span class="p-tick">' + (on ? '&#10003;' : '') + '</span>'
-        + '<span class="p-label">' + esc(w.label || w.id) + '</span>'
-        + (pct === null ? ''
-          : '<span class="p-pct"><span class="p-dot" style="background:' + band(pct) + '"></span>' + pct + '%</span>')
-        + '</button>';
-    }
-    html += '</div>';
+  // One row per provider: a slot draws that provider's ring, so there is nothing else to choose
+  for(const p of providerList()){
+    const st = statusText(p), on = cur.provider === p.id;
+    const pct = (typeof p.used === 'number' && isFinite(p.used)) ? p.used : null;
+    html += '<button class="p-item' + (on ? ' on' : '') + '" data-p="' + esc(p.id) + '">'
+      + '<span class="p-tick">' + (on ? '&#10003;' : '') + '</span>'
+      + '<span class="p-label">' + esc(p.label || p.id) + '</span>'
+      + '<span class="p-pct">' + (st ? '<span class="p-status warn">' + esc(st) + '</span>' : '')
+      + (pct === null ? '' : '<span class="p-dot" style="background:' + band(pct) + '"></span>' + pct + '%')
+      + '</span></button>';
   }
   host.innerHTML = html;
 }
 
-function chooseSlot(provider, winId){
+function chooseSlot(provider){
   if(!cfg.slots[sel]) return;
-  cfg.slots[sel] = { provider: provider, window: winId || '' };
+  cfg.slots[sel] = { provider: provider };
   repairNote = '';          // the user has now made a deliberate choice; the repair notice is spent
   render();
   refreshPreview();
@@ -1018,25 +974,34 @@ document.getElementById('chips').addEventListener('click', e => {
 });
 document.getElementById('picker').addEventListener('click', e => {
   const b = e.target.closest('.p-item');
-  if(b) chooseSlot(b.dataset.p, b.dataset.w);
+  if(b) chooseSlot(b.dataset.p);
 });
 
 /* ---- the notch's rings --------------------------------------------------
-   The pill at the edge of the screen draws one ring per provider. What is saved is a list of
-   {provider, window} slots, exactly the shape the tray icon uses, so the two settings read alike.
-   An EMPTY list means "every provider, each showing whichever of its windows is fullest" — the
-   default, and the behaviour Codenotch has always had. An empty `window` on a slot means the same
-   fullest rule for that one provider. */
-let notchSlots = [];       // exactly what is stored: [] = all of them, all on "fullest"
+   The pill at the edge of the screen draws one ring per provider, each showing the window the Mac
+   app shows for it. What is saved is which providers are on, as {provider} slots, exactly the
+   shape the tray icon uses. An EMPTY list means every provider — the default. */
+let notchSlots = [];       // exactly what is stored: [] = all of them
+
+/* Antigravity is the one provider with a choice, as in the Mac app: "Notch reads" picks the lane's
+   cadence, "Model data" the model family whose lanes it reads. */
+const AG_LIMITS = [['automatic', 'Automatic'], ['5h', '5-Hour Limit'], ['weekly', 'Weekly Limit']];
+const AG_MODELS = [['gemini', 'Gemini Models'], ['3p', 'Claude and GPT models']];
+let agPrefs = { limit:'automatic', model:'gemini' };
+function agPicker(key, name, choices, value, enabled){
+  return '<label class="np-ag">' + esc(name) + '<select data-ag="' + key + '"' + (enabled ? '' : ' disabled') + '>'
+    + choices.map(([v, t]) => '<option value="' + v + '"' + (v === value ? ' selected' : '') + '>' + esc(ui(t, t)) + '</option>').join('')
+    + '</select></label>';
+}
 
 /* The effective slots, resolved against the providers that actually exist. A saved list that
    matches none of them is treated as "all" — the same fallback notch.html makes — so the pill is
    never drawn empty because of a stale name. */
 function notchOn(){
   const ids = providerList().map(p => p.id);
-  if(!notchSlots.length) return ids.map(id => ({ provider:id, window:'' }));
+  if(!notchSlots.length) return ids.map(id => ({ provider:id }));
   const on = notchSlots.filter(sl => sl && ids.indexOf(sl.provider) >= 0);
-  return on.length ? on : ids.map(id => ({ provider:id, window:'' }));
+  return on.length ? on : ids.map(id => ({ provider:id }));
 }
 function notchSlotOf(id){
   for(const sl of notchOn()){ if(sl.provider === id) return sl; }
@@ -1064,33 +1029,27 @@ function renderNotch(){
       + (st ? '<span class="p-status warn">' + esc(st) + '</span>' : '')
       + (only ? '<span class="np-lock">kept</span>' : '')
       + '</span></button>';
-    // The window picker only means anything for a ring that is actually drawn
-    let opts = '<option value="">' + esc(ui('Whichever is fullest', 'Whichever is fullest')) + '</option>';
-    for(const w of winsOf(p.id)){
-      const selAttr = (ticked && sl.window === w.id) ? ' selected' : '';
-      const pct = (w.used === null || w.used === undefined) ? '' : '  ' + w.used + '%';
-      opts += '<option value="' + esc(w.id) + '"' + selAttr + '>' + esc(w.label + pct) + '</option>';
+    if(p.id === 'gemini'){
+      html += agPicker('limit', ui('Notch reads', 'Notch reads'), AG_LIMITS, agPrefs.limit, ticked)
+        + agPicker('model', ui('Model data', 'Model data'), AG_MODELS, agPrefs.model, ticked);
     }
-    html += '<select class="np-win" data-npw="' + esc(p.id) + '"' + (ticked ? '' : ' disabled') + '>'
-      + opts + '</select></div>';
+    html += '</div>';
   }
   host.innerHTML = html;
-  const shown = on.map(sl => provLabel(sl.provider) + ' · ' + winLabel(sl.provider, sl.window));
-  note.textContent = ui('Showing', 'Showing') + ' ' + shown.join('   |   ')
-    + '.  ' + ui('One provider always stays ticked, so the pill is never empty.', 'One provider always stays ticked, so the pill is never empty.');
+  note.textContent = ui('Showing', 'Showing') + ' ' + on.map(sl => provLabel(sl.provider)).join(', ')
+    + '. ' + ui('One provider always stays ticked, so the pill is never empty.', 'One provider always stays ticked, so the pill is never empty.');
 }
 
-/* Everything ticked AND every window left on "fullest" is stored as an EMPTY list, not as four
-   slots. Empty means "all" to the Rust side, so a provider added in a future version turns up on
-   the notch by itself; a list of today's four ids would silently exclude it forever. */
+/* Everything ticked is stored as an EMPTY list, not as four slots. Empty means "all" to the Rust
+   side, so a provider added in a future version turns up on the notch by itself; a list of today's
+   four ids would silently exclude it forever. */
 function saveNotch(next){
   const ids = providerList().map(p => p.id);
-  const isDefault = next.length === ids.length && next.every(sl => !sl.window);
-  const store = isDefault ? [] : next;
+  const store = next.length === ids.length ? [] : next;
   const prev = notchSlots;
   notchSlots = store;
   renderNotch();
-  invoke('set_notch_slots', { slots: store.map(sl => ({ provider:sl.provider, window:sl.window || '' })) })
+  invoke('set_notch_slots', { slots: store.map(sl => ({ provider:sl.provider })) })
     .then(() => toast(ui('Saved', 'Saved')))
     .catch(e => {
       notchSlots = prev;     // nothing was saved, so put it back rather than show a lie
@@ -1111,14 +1070,9 @@ function toggleNotch(id){
     if(on.length <= 1){ toast(ui('At least one provider stays on the notch', 'At least one provider stays on the notch')); return; }
     on.splice(at, 1);
   } else {
-    on.push({ provider:id, window:'' });
+    on.push({ provider:id });
   }
   on.sort((a, b) => ids.indexOf(a.provider) - ids.indexOf(b.provider));  // fixed order, not click order
-  saveNotch(on);
-}
-
-function setNotchWindow(id, wid){
-  const on = notchOn().map(sl => sl.provider === id ? { provider:id, window:wid || '' } : sl);
   saveNotch(on);
 }
 
@@ -1127,8 +1081,12 @@ document.getElementById('notch-list').addEventListener('click', e => {
   if(b) toggleNotch(b.dataset.np);
 });
 document.getElementById('notch-list').addEventListener('change', e => {
-  const box = e.target.closest('[data-npw]');
-  if(box) setNotchWindow(box.dataset.npw, box.value);
+  const box = e.target.closest('[data-ag]');
+  if(!box) return;
+  const want = Object.assign({}, agPrefs, { [box.dataset.ag]: box.value });
+  invoke('set_antigravity_prefs', want)
+    .then(v => { agPrefs = v; renderNotch(); toast(ui('Saved', 'Saved')); })
+    .catch(err => { renderNotch(); strip('set_antigravity_prefs failed: ' + errText(err)); });
 });
 
 /* ---- notch size -------------------------------------------------------- */
@@ -1321,9 +1279,13 @@ function boot(){
   call('get_notch_slots', undefined, []).then(v => {
     notchSlots = Array.isArray(v)
       ? v.filter(x => x && typeof x.provider === 'string')
-          .map(x => ({ provider:x.provider, window: typeof x.window === 'string' ? x.window : '' }))
+          .map(x => ({ provider:x.provider }))
       : [];
     renderNotch();
+  });
+
+  call('get_antigravity_prefs', undefined, null).then(v => {
+    if(v && typeof v === 'object'){ agPrefs = v; renderNotch(); }
   });
 
   call('get_scale', undefined, null).then(v => {
