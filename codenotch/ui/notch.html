@@ -63,7 +63,7 @@
 
   /* Hover card, shown to the left of the pill */
   #card{
-    position:absolute;left:10px;right:80px;top:50%;transform:translateY(-50%);--tail:50%;
+    position:absolute;left:10px;right:100px;top:50%;transform:translateY(-50%);
     /* Anchored on both sides = fluid width: whatever the WebView's real logical width, the card cannot
        extend past the window's left edge (a fixed max-width got clipped when the DPI disagreed).
        The 246 cap matches the upstream spec. */
@@ -73,10 +73,15 @@
     display:none;
   }
   #card.show{display:block}
-  #card::after{ /* solid triangle pointing at the pill */
-    content:"";position:absolute;right:-8px;top:var(--tail);transform:translateY(-50%);
-    border:8px solid transparent;border-right:none;border-left:10px solid #0a0a0a;
+  /* The tail, its point on the hovered ring: the Mac's curved wedge (TooltipTail), whose shoulders
+     leave the card tangent to its edge so the two read as one shape. An element of its own rather
+     than ::after, so the card's overflow cannot clip it and it can be reported as hot. It spans the
+     whole gap, its tip tucked 1 px under the pill's edge so the two meet. */
+  #tail{
+    position:absolute;right:69px;width:32px;height:36px;background:#0a0a0a;display:none;
+    clip-path:path('M0 0C0 9 18.56 13.68 32 18C18.56 22.32 0 27 0 36Z');
   }
+  #card.show + #tail{display:block}
   .c-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
   .c-title{font-size:14px;font-weight:700}
   .c-sub{font-size:11px;color:#808080;margin-bottom:10px}
@@ -87,6 +92,8 @@
   .w-track{height:4px;border-radius:2px;background:#2d2d2d;margin:6px 0 4px;overflow:hidden}
   .w-fill{height:100%;border-radius:2px}
   .w-used{font-size:11px;color:#808080}
+  .g-head{font-size:12px;font-weight:700;color:#e8e8ea;margin-top:12px}
+  .g-box{border:1px solid #242424;border-radius:10px;padding:0 10px 8px;margin-top:6px}
   .c-note{font-size:12px;color:#c8c8c8;line-height:1.5;margin-top:6px}
   .c-sessions{margin-top:12px;border-top:1px solid #1e1e1e;padding-top:8px}
   .s-row{display:flex;align-items:center;gap:6px;font-size:11px;color:#b0b0b3;padding:2px 0}
@@ -109,6 +116,7 @@
 <body>
 <div id="root">
   <div id="card"></div>
+  <div id="tail"></div>
   <div id="pill"></div><!-- one .cell per provider, stacked vertically (upstream: data-driven, the same layout for 1–5 cells) -->
   <div id="notice"></div>
 </div>
@@ -140,6 +148,9 @@ const RU_TEXT={
   'Weekly limit':'Недельный лимит',
   'Weekly Limit':'Недельный лимит',
   '5-Hour Limit':'Лимит на 5 часов',
+  '5-hour Limit':'Лимит на 5 часов',
+  'Gemini Models':'Модели Gemini',
+  'Claude and GPT models':'Модели Claude и GPT',
   'Monthly limit':'Месячный лимит',
   'Monthly Limit':'Месячный лимит',
   'Longer window':'Более длительный период',
@@ -364,7 +375,14 @@ function renderCard(){
   }else if(!snap.windows.length){
     html+=`<div class="c-note">${esc(textCopy(snap.note||'Waiting for first reading…'))}</div>`;
   }else{
+    // Windows that share a group (Antigravity's model families) sit in one box under its name, as on the Mac
+    let group=null;
     for(const w of snap.windows){
+      if((w.group||null)!==group){
+        if(group) html+=`</div>`;
+        group=w.group||null;
+        if(group) html+=`<div class="g-head">${esc(textCopy(group))}</div><div class="g-box">`;
+      }
       if(w.count!=null){
         html+=`<div class="win"><div class="w-row"><span class="w-label">${esc(textCopy(w.label))}</span></div>
           <div class="w-used">${w.count>0?`~${w.count} ${textCopy(w.count===1?'request today':'requests today')}`:textCopy('no requests today')}</div></div>`;
@@ -376,6 +394,7 @@ function renderCard(){
         <div class="w-used">${w.derived?'~':''}${Math.round(w.used*100)}% ${textCopy('Used')}</div>
       </div>`;
     }
+    if(group) html+=`</div>`;
     if(snap.note) html+=`<div class="c-note">${esc(textCopy(snap.note))}</div>`;
   }
   if(p.id==='claude'){ // live sessions (a full list with jump-to-session is a follow-up)
@@ -411,13 +430,16 @@ function placeCard(){
   const H=innerHeight, ch=card.offsetHeight||0;
   let top=Math.round(cy-ch/2); top=Math.max(8,Math.min(top,H-ch-8));
   card.style.top=top+'px'; card.style.transform='none';
-  card.style.setProperty('--tail',Math.max(16,Math.min(ch-16,Math.round(cy-top)))+'px');
+  // The tail's point on the hovered ring (not the cell, which includes the label below it), kept off the card's rounded corners
+  const rr=(cell.querySelector('.ringwrap')||cell).getBoundingClientRect(), ry=rr.top+rr.height/2;
+  const th=tail.offsetHeight||36, ty=Math.max(top+16+th/2,Math.min(top+ch-16-th/2,ry));
+  tail.style.top=Math.round(ty-th/2)+'px';
 }
 
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
 
 /* Hover: stays expanded while either the pill or the card is under the cursor; collapses after a 250 ms grace period (upstream motion rule) */
-const card=document.getElementById('card'), pill=document.getElementById('pill');
+const card=document.getElementById('card'), pill=document.getElementById('pill'), tail=document.getElementById('tail');
 let hideTimer=null;
 function showCard(){clearTimeout(hideTimer);card.classList.add('show');renderCard();armWatchdog();} // show first, then render: placeCard needs offsetHeight
 function hideCard(){card.classList.remove('show');reportHot();}
@@ -433,7 +455,7 @@ function rectOf(el){const r=el.getBoundingClientRect(),k=window.devicePixelRatio
    when the card opens: a stale pill rectangle is a pill that cannot be clicked. */
 function reportHot(){
   const open=card.classList.contains('show');
-  const rects=open?[rectOf(pill),rectOf(card)]:[rectOf(pill)];
+  const rects=open?[rectOf(pill),rectOf(tail),rectOf(card)]:[rectOf(pill)];
   callq('set_hot',{rects,expanded:open}).catch(()=>{});
 }
 /* ---- Notch size ---------------------------------------------------------
@@ -477,10 +499,10 @@ function loadScale(){
 function armWatchdog(){
   requestAnimationFrame(reportHot); // wait one frame so renderCard's new content is laid out before measuring
 }
-// Viewport fit (pure front-end fallback, independent of Rust): the window is 340 × primary scale physical px,
-// so if this page's CSS viewport is not 340 wide the WebView's DPR disagrees with the monitor; CSS zoom pulls the layout back to the design size.
+// Viewport fit (pure front-end fallback, independent of Rust): the window is NOTCH_W (360) × primary scale physical px,
+// so if this page's CSS viewport is not 360 wide the WebView's DPR disagrees with the monitor; CSS zoom pulls the layout back to the design size.
 function fitZoom(){
-  const z=innerWidth/340;
+  const z=innerWidth/360;
   document.documentElement.style.zoom=(Math.abs(z-1)>0.02)?String(z):'';
   return z;
 }

@@ -59,6 +59,10 @@ pub struct LimitWindow {
     /// The number is ours, not the vendor's (upstream fidelity=.derived) — the card adds a ~ prefix
     #[serde(default)]
     pub derived: bool,
+    /// The heading the window sits under on the card, for a provider that reports the same windows
+    /// for several things (Antigravity: a 5-hour and a weekly lane per model family). None = ungrouped
+    #[serde(default)]
+    pub group: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

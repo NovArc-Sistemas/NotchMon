@@ -129,9 +129,16 @@ fn parse_quota(text: &str) -> Result<Vec<LimitWindow>, String> {
             .replace(" and ", "/")
             .replace(" Weekly Limit", " · Weekly")
             .replace(" Five Hour Limit", " · 5h");
+        // Grouped by model family and named by lane, as the Mac card shows them
+        let group = [" Weekly Limit", " Five Hour Limit"]
+            .iter()
+            .find_map(|s| label.strip_suffix(s))
+            .map(String::from);
+        let lane = crate::antigravity::lane_name(&label).filter(|_| group.is_some());
         out.push(LimitWindow {
+            label: lane.map_or(short_label, String::from),
+            group,
             id: label,
-            label: short_label,
             used: ((100.0 - remaining) / 100.0).clamp(0.0, 1.0),
             resets_at: Some(reset as u64),
             ..Default::default()
@@ -140,6 +147,7 @@ fn parse_quota(text: &str) -> Result<Vec<LimitWindow>, String> {
     if out.is_empty() {
         return Err("CLI returned no recognised quota windows".into());
     }
+    crate::antigravity::order_lanes(&mut out);
     Ok(out)
 }
 
@@ -517,23 +525,28 @@ mod tests {
         let windows = parse_quota(text).expect("valid sample quota");
         assert_eq!(windows.len(), 4);
 
-        assert_eq!(windows[0].id, "Gemini Models Weekly Limit");
-        assert_eq!(windows[0].label, "Gemini · Weekly");
-        assert!((windows[0].used - 0.06).abs() < 1e-5);
+        // Grouped by model and named by lane, 5-hour first, as the Mac card shows them
+        assert_eq!(windows[0].id, "Gemini Models Five Hour Limit");
+        assert_eq!(windows[0].label, "5-hour Limit");
+        assert_eq!(windows[0].group.as_deref(), Some("Gemini Models"));
+        assert!((windows[0].used - 0.22).abs() < 1e-5);
         assert!(windows[0].resets_at.is_some());
 
-        assert_eq!(windows[1].id, "Gemini Models Five Hour Limit");
-        assert_eq!(windows[1].label, "Gemini · 5h");
-        assert!((windows[1].used - 0.22).abs() < 1e-5);
+        assert_eq!(windows[1].id, "Gemini Models Weekly Limit");
+        assert_eq!(windows[1].label, "Weekly Limit");
+        assert_eq!(windows[1].group.as_deref(), Some("Gemini Models"));
+        assert!((windows[1].used - 0.06).abs() < 1e-5);
         assert!(windows[1].resets_at.is_some());
 
-        assert_eq!(windows[2].id, "Claude and GPT models Weekly Limit");
-        assert_eq!(windows[2].label, "Claude/GPT · Weekly");
+        assert_eq!(windows[2].id, "Claude and GPT models Five Hour Limit");
+        assert_eq!(windows[2].label, "5-hour Limit");
+        assert_eq!(windows[2].group.as_deref(), Some("Claude and GPT models"));
         assert_eq!(windows[2].used, 0.0);
         assert!(windows[2].resets_at.is_some());
 
-        assert_eq!(windows[3].id, "Claude and GPT models Five Hour Limit");
-        assert_eq!(windows[3].label, "Claude/GPT · 5h");
+        assert_eq!(windows[3].id, "Claude and GPT models Weekly Limit");
+        assert_eq!(windows[3].label, "Weekly Limit");
+        assert_eq!(windows[3].group.as_deref(), Some("Claude and GPT models"));
         assert_eq!(windows[3].used, 0.0);
         assert!(windows[3].resets_at.is_some());
 
@@ -560,7 +573,7 @@ mod tests {
         );
         let parsed = parse_quota(&clean).expect("parsed sanitized quota");
         assert_eq!(parsed.len(), 1);
-        assert_eq!(parsed[0].label, "Gemini · Weekly");
+        assert_eq!(parsed[0].label, "Weekly Limit");
     }
 
     #[test]

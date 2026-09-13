@@ -297,16 +297,49 @@ pub fn windows_from_bridge(v: &serde_json::Value) -> Vec<LimitWindow> {
                 continue;
             }
             let bname = b.get("displayName").and_then(|x| x.as_str());
+            let id = b.get("bucketId").and_then(|x| x.as_str()).or(gname).unwrap_or("quota").to_string();
             out.push(LimitWindow {
-                id: b.get("bucketId").and_then(|x| x.as_str()).or(gname).unwrap_or("quota").to_string(),
-                label: gname.or(bname).unwrap_or("Usage").to_string(),
+                label: lane_name(&id).or(gname).or(bname).unwrap_or("Usage").to_string(),
+                group: gname.map(String::from),
+                id,
                 used: (1.0 - rem).clamp(0.0, 1.0),
                 resets_at: parse_iso(b.get("resetTime")),
                 ..Default::default()
             });
         }
     }
+    order_lanes(&mut out);
     out
+}
+
+/// "5-hour Limit" or "Weekly Limit", as the Mac card names Antigravity's lanes, from the language
+/// server's `gemini-5h` ids or the CLI's "Gemini Models Five Hour Limit" ones
+pub(crate) fn lane_name(id: &str) -> Option<&'static str> {
+    let id = id.to_lowercase();
+    if id.contains("weekly") {
+        Some("Weekly Limit")
+    } else if ["5h", "five hour", "hourly"].iter().any(|k| id.contains(k)) {
+        Some("5-hour Limit")
+    } else {
+        None
+    }
+}
+
+/// The Mac card's order: groups as the source lists them, and in each the 5-hour lane before the
+/// weekly one. The language server and the CLI both send weekly first.
+pub(crate) fn order_lanes(windows: &mut [LimitWindow]) {
+    let mut groups: Vec<Option<String>> = Vec::new();
+    for w in windows.iter() {
+        if !groups.contains(&w.group) {
+            groups.push(w.group.clone());
+        }
+    }
+    let rank = |w: &LimitWindow| match lane_name(&w.id) {
+        Some("5-hour Limit") => 0,
+        Some(_) => 1,
+        None => 2,
+    };
+    windows.sort_by_key(|w| (groups.iter().position(|g| *g == w.group), rank(w)));
 }
 
 // ---------------- 3. Credential path ----------------
@@ -608,6 +641,7 @@ fn read_once(rt: &mut Runtime, prev: &UsageSnapshot) -> UsageSnapshot {
         resets_at: None,
         count: Some(n as i64),
         derived: true,
+        ..Default::default()
     }];
     snap.note = match tier {
         Some(t) => format!("{t} · Google publishes no quota for this account"),
@@ -859,5 +893,30 @@ mod tests {
         std::fs::create_dir_all(h.flavour("antigravity-ide").join("brain")).unwrap();
         trajectory(&h.flavour("antigravity-cli"), "c", &[step("MODEL", chrono::Utc::now())]);
         assert_eq!(requests_in(&state_roots_in(&h.0), today()).0, 1);
+    }
+
+    #[test]
+    fn lanes_are_grouped_by_model_and_named_five_hour_first() {
+        // The shape the language server answered with on a real machine
+        let reply = serde_json::json!({ "response": { "groups": [
+            { "displayName": "Gemini Models", "buckets": [
+                { "bucketId": "gemini-weekly", "remainingFraction": 0.97 },
+                { "bucketId": "gemini-5h", "remainingFraction": 1.0 } ] },
+            { "displayName": "Claude and GPT models", "buckets": [
+                { "bucketId": "3p-weekly", "remainingFraction": 1.0 },
+                { "bucketId": "3p-5h", "remainingFraction": 1.0 } ] } ] } });
+        let lanes: Vec<String> = super::windows_from_bridge(&reply)
+            .into_iter()
+            .map(|w| format!("{} › {} ({})", w.group.unwrap_or_default(), w.label, w.id))
+            .collect();
+        assert_eq!(
+            lanes,
+            [
+                "Gemini Models › 5-hour Limit (gemini-5h)",
+                "Gemini Models › Weekly Limit (gemini-weekly)",
+                "Claude and GPT models › 5-hour Limit (3p-5h)",
+                "Claude and GPT models › Weekly Limit (3p-weekly)",
+            ]
+        );
     }
 }
