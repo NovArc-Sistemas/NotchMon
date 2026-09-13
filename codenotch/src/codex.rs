@@ -240,28 +240,126 @@ fn num(v: Option<&serde_json::Value>) -> Option<f64> {
     v.and_then(|x| x.as_f64())
 }
 
-/// Usage reply → windows. `additional_rate_limits` and `code_review_rate_limit` meter something
-/// else and stay out of the rings. The window id records which field it came from
-/// (primary/secondary) and the label is derived from the length — the primary window is not
-/// always five hours (a free plan has shown 30 days), and recognising only fixed lengths would
-/// drop a window that is genuinely in use.
+/// Seconds → ms. Negative / non-finite values are treated as missing so a
+/// garbage extra cannot wrap `now + ms` (debug overflow panics).
+fn secs_to_ms(s: f64) -> Option<u64> {
+    if !s.is_finite() || s < 0.0 {
+        None
+    } else {
+        Some((s * 1000.0) as u64)
+    }
+}
+
+fn reset_at_ms(w: &serde_json::Value, now: u64, epoch_key: &str, delay_key: &str) -> Option<u64> {
+    num(w.get(epoch_key))
+        .and_then(secs_to_ms)
+        .or_else(|| num(w.get(delay_key)).and_then(secs_to_ms).map(|ms| now.saturating_add(ms)))
+}
+
+/// Skip a window with no `used_percent`. Extra ids still pass primary/secondary to `label_for`.
+fn window_from(
+    w: &serde_json::Value,
+    id: &str,
+    fallback: &str,
+    now: u64,
+    group: Option<&str>,
+) -> Option<LimitWindow> {
+    if !w.is_object() {
+        return None;
+    }
+    let pct = num(w.get("used_percent"))?;
+    Some(LimitWindow {
+        id: id.into(),
+        label: label_for(num(w.get("limit_window_seconds")).map(|s| s / 60.0), fallback),
+        used: (pct / 100.0).clamp(0.0, 1.0),
+        resets_at: reset_at_ms(w, now, "reset_at", "reset_after_seconds"),
+        group: group.map(str::to_string),
+        ..Default::default()
+    })
+}
+
+fn names_spark(extra: &serde_json::Value) -> bool {
+    if !extra.is_object() {
+        return false;
+    }
+    ["limit_name", "metered_feature"].iter().any(|key| {
+        extra
+            .get(*key)
+            .and_then(|x| x.as_str())
+            .is_some_and(|s| s.to_lowercase().contains("spark"))
+    })
+}
+
+/// Spark / code review sit after the main pair so `windows.first` stays primary.
+/// The group is what the hover card uses to box them; omitting it leaves them
+/// as extra ungrouped bars under the main windows.
+fn append_extra(
+    rl: Option<&serde_json::Value>,
+    primary_id: &str,
+    secondary_id: &str,
+    group: &str,
+    now: u64,
+    out: &mut Vec<LimitWindow>,
+) {
+    let Some(rl) = rl.filter(|x| x.is_object()) else {
+        return;
+    };
+    if let Some(w) = rl
+        .get("primary_window")
+        .and_then(|x| window_from(x, primary_id, "primary", now, Some(group)))
+    {
+        push_unique(out, w);
+    }
+    if let Some(w) = rl
+        .get("secondary_window")
+        .and_then(|x| window_from(x, secondary_id, "secondary", now, Some(group)))
+    {
+        push_unique(out, w);
+    }
+}
+
+fn push_unique(out: &mut Vec<LimitWindow>, window: LimitWindow) {
+    if out.iter().any(|w| w.id == window.id) {
+        return;
+    }
+    out.push(window);
+}
+
+/// Usage reply → windows. Primary and secondary feed the ring; Spark
+/// (`additional_rate_limits`) and Code review (`code_review_rate_limit`) belong
+/// on the hover card, not as extra rings. The window id records which field it
+/// came from and the label is derived from the length — the primary window is
+/// not always five hours (a free plan has shown 30 days), and recognising only
+/// fixed lengths would drop a window that is genuinely in use.
 fn windows_from_usage(v: &serde_json::Value) -> Vec<LimitWindow> {
     let now = now_ms();
     let mut out = Vec::new();
     for (id, key) in [("primary", "primary_window"), ("secondary", "secondary_window")] {
-        let Some(w) = v.pointer(&format!("/rate_limit/{key}")).filter(|x| x.is_object()) else { continue };
-        let Some(pct) = num(w.get("used_percent")) else { continue };
-        let resets_at = num(w.get("reset_at"))
-            .map(|s| (s * 1000.0) as u64)
-            .or_else(|| num(w.get("reset_after_seconds")).map(|s| now + (s * 1000.0) as u64));
-        out.push(LimitWindow {
-            id: id.into(),
-            label: label_for(num(w.get("limit_window_seconds")).map(|s| s / 60.0), id),
-            used: (pct / 100.0).clamp(0.0, 1.0),
-            resets_at,
-            ..Default::default()
-        });
+        if let Some(w) = v
+            .pointer(&format!("/rate_limit/{key}"))
+            .and_then(|x| window_from(x, id, id, now, None))
+        {
+            out.push(w);
+        }
     }
+    // A non-array (null, object, string) is the same as omitting the field —
+    // one junk extra must not discard the main pair or a later Spark row.
+    if let Some(extras) = v.get("additional_rate_limits").and_then(|x| x.as_array()) {
+        for extra in extras {
+            if !names_spark(extra) {
+                continue;
+            }
+            append_extra(extra.get("rate_limit"), "spark", "spark-secondary", "Spark", now, &mut out);
+        }
+    }
+    append_extra(
+        v.get("code_review_rate_limit"),
+        "code-review",
+        "code-review-secondary",
+        "Code review",
+        now,
+        &mut out,
+    );
     out
 }
 
@@ -342,14 +440,12 @@ pub fn snapshot_from_rollout(text: &str) -> Option<(Vec<LimitWindow>, Option<u64
         for id in ["primary", "secondary"] {
             let Some(w) = rl.get(id).filter(|x| x.is_object()) else { continue };
             let Some(pct) = num(w.get("used_percent")) else { continue };
-            let resets_at = num(w.get("resets_at"))
-                .map(|s| (s * 1000.0) as u64)
-                .or_else(|| num(w.get("resets_in_seconds")).map(|s| now + (s * 1000.0) as u64));
             out.push(LimitWindow {
                 id: id.into(),
                 label: label_for(num(w.get("window_minutes")), id),
                 used: (pct / 100.0).clamp(0.0, 1.0),
-                resets_at, ..Default::default()
+                resets_at: reset_at_ms(w, now, "resets_at", "resets_in_seconds"),
+                ..Default::default()
             });
         }
         if out.is_empty() {
@@ -536,4 +632,204 @@ pub fn probe() -> String {
         roll.map(|p| p.display().to_string()).unwrap_or_else(|| "none".into()),
         age
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn windows(json: &str) -> Vec<LimitWindow> {
+        windows_from_usage(&serde_json::from_str(json).unwrap())
+    }
+
+    fn ids(ws: &[LimitWindow]) -> Vec<&str> {
+        ws.iter().map(|w| w.id.as_str()).collect()
+    }
+
+    fn labels(ws: &[LimitWindow]) -> Vec<&str> {
+        ws.iter().map(|w| w.label.as_str()).collect()
+    }
+
+    fn groups(ws: &[LimitWindow]) -> Vec<Option<&str>> {
+        ws.iter().map(|w| w.group.as_deref()).collect()
+    }
+
+    #[test]
+    fn extra_spark_and_code_review_follow_primary_secondary() {
+        let ws = windows(
+            r#"{
+            "rate_limit":{
+              "primary_window":{"used_percent":25,"limit_window_seconds":18000,"reset_at":1800001000},
+              "secondary_window":{"used_percent":10,"limit_window_seconds":604800,"reset_at":1800600000}},
+            "additional_rate_limits":[{"limit_name":"Spark","rate_limit":{
+              "primary_window":{"used_percent":99,"limit_window_seconds":18000}}}],
+            "code_review_rate_limit":{"primary_window":{"used_percent":90,"limit_window_seconds":604800}},
+            "credits":{"balance":"100"},"model_usage":{"spark":99}
+        }"#,
+        );
+        assert_eq!(ids(&ws), ["primary", "secondary", "spark", "code-review"]);
+        assert_eq!(labels(&ws), ["5h limit", "Weekly limit", "5h limit", "Weekly limit"]);
+        assert_eq!(groups(&ws), [None, None, Some("Spark"), Some("Code review")]);
+        assert!((ws[0].used - 0.25).abs() < 1e-9);
+        assert!((ws[2].used - 0.99).abs() < 1e-9);
+        assert!((ws[3].used - 0.90).abs() < 1e-9);
+        assert_eq!(ws[0].resets_at, Some(1_800_001_000_000));
+    }
+
+    #[test]
+    fn spark_matches_limit_name_or_metered_feature_case_insensitively() {
+        // "GPT-5.3-Codex-Spark" still contains the substring "Spark", so it
+        // would pass a case-sensitive contains("Spark"). SPARK / spark would not.
+        for (field, name) in [
+            ("limit_name", "SPARK"),
+            ("limit_name", "spark"),
+            ("metered_feature", "GPT-5.3-Codex-SPARK"),
+            ("metered_feature", "gpt-5.3-codex-spark"),
+        ] {
+            let ws = windows(&format!(
+                r#"{{
+                "rate_limit":{{"primary_window":{{"used_percent":1,"limit_window_seconds":18000}}}},
+                "additional_rate_limits":[{{"{field}":"{name}","rate_limit":{{
+                  "primary_window":{{"used_percent":40,"limit_window_seconds":18000}},
+                  "secondary_window":{{"used_percent":5,"limit_window_seconds":604800}}}}}}]
+            }}"#
+            ));
+            assert_eq!(ids(&ws), ["primary", "spark", "spark-secondary"], "{field}={name}");
+            assert_eq!(groups(&ws)[1..], [Some("Spark"), Some("Spark")], "{field}={name}");
+            assert_eq!(labels(&ws)[1..], ["5h limit", "Weekly limit"], "{field}={name}");
+        }
+    }
+
+    #[test]
+    fn extras_alone_are_still_a_reading() {
+        let ws = windows(
+            r#"{"additional_rate_limits":[{"limit_name":"Spark","rate_limit":{
+              "primary_window":{"used_percent":40,"limit_window_seconds":18000},
+              "secondary_window":{"used_percent":70,"limit_window_seconds":604800}}}]}"#,
+        );
+        assert_eq!(ids(&ws), ["spark", "spark-secondary"]);
+        assert_eq!(groups(&ws), [Some("Spark"), Some("Spark")]);
+        assert_eq!(labels(&ws), ["5h limit", "Weekly limit"]);
+        assert!((ws[0].used - 0.40).abs() < 1e-9);
+        assert!((ws[1].used - 0.70).abs() < 1e-9);
+    }
+
+    #[test]
+    fn non_spark_additional_limits_are_ignored() {
+        let ws = windows(
+            r#"{
+            "rate_limit":{"primary_window":{"used_percent":1,"limit_window_seconds":18000}},
+            "additional_rate_limits":[{"limit_name":"codex_other","metered_feature":"codex_other","rate_limit":{
+              "primary_window":{"used_percent":70,"limit_window_seconds":3600}}}]
+        }"#,
+        );
+        assert_eq!(ids(&ws), ["primary"]);
+    }
+
+    #[test]
+    fn empty_additional_rate_limits_leave_the_main_windows() {
+        let ws = windows(
+            r#"{
+            "rate_limit":{
+              "primary_window":{"used_percent":25,"limit_window_seconds":18000},
+              "secondary_window":{"used_percent":10,"limit_window_seconds":604800}},
+            "additional_rate_limits":[]
+        }"#,
+        );
+        assert_eq!(ids(&ws), ["primary", "secondary"]);
+        assert_eq!(groups(&ws), [None, None]);
+    }
+
+    #[test]
+    fn extras_without_used_percent_are_skipped() {
+        let ws = windows(
+            r#"{
+            "rate_limit":{"primary_window":{"used_percent":1,"limit_window_seconds":18000}},
+            "additional_rate_limits":[{"limit_name":"Spark","rate_limit":{
+              "primary_window":{"used_percent":null,"limit_window_seconds":18000},
+              "secondary_window":{"used_percent":12,"limit_window_seconds":604800}}}],
+            "code_review_rate_limit":{
+              "primary_window":{"limit_window_seconds":604800},
+              "secondary_window":{"used_percent":8,"limit_window_seconds":18000}}
+        }"#,
+        );
+        assert_eq!(ids(&ws), ["primary", "spark-secondary", "code-review-secondary"]);
+        assert_eq!(groups(&ws)[1..], [Some("Spark"), Some("Code review")]);
+        assert_eq!(ws[1].label, "Weekly limit");
+        assert_eq!(ws[2].label, "5h limit");
+    }
+
+    #[test]
+    fn malformed_extras_do_not_drop_the_main_windows() {
+        let ws = windows(
+            r#"{
+            "rate_limit":{"primary_window":{"used_percent":25,"limit_window_seconds":18000}},
+            "additional_rate_limits":[
+              "nope",
+              42,
+              null,
+              {"limit_name":"Spark"},
+              {"limit_name":"Spark","rate_limit":"nope"},
+              {"limit_name":"Spark","rate_limit":{"primary_window":{
+                "used_percent":40,"limit_window_seconds":18000,"reset_after_seconds":1e20}}},
+              {"limit_name":"Spark","rate_limit":{"primary_window":{
+                "used_percent":15,"limit_window_seconds":18000}}}
+            ],
+            "code_review_rate_limit":"nope"
+        }"#,
+        );
+        assert_eq!(ids(&ws), ["primary", "spark"]);
+        assert_eq!(groups(&ws), [None, Some("Spark")]);
+        assert!((ws[1].used - 0.40).abs() < 1e-9);
+        assert!(ws[1].resets_at.is_some());
+    }
+
+    #[test]
+    fn two_spark_extras_do_not_duplicate_window_ids() {
+        let ws = windows(
+            r#"{
+            "rate_limit":{
+              "primary_window":{"used_percent":25,"limit_window_seconds":18000},
+              "secondary_window":{"used_percent":10,"limit_window_seconds":604800}},
+            "additional_rate_limits":[
+              {"limit_name":"Spark","rate_limit":{
+                "primary_window":{"used_percent":40,"limit_window_seconds":18000}}},
+              {"limit_name":"GPT-5.3-Codex-Spark","metered_feature":"spark","rate_limit":{
+                "primary_window":{"used_percent":99,"limit_window_seconds":18000},
+                "secondary_window":{"used_percent":12,"limit_window_seconds":604800}}}
+            ]
+        }"#,
+        );
+        assert_eq!(ids(&ws), ["primary", "secondary", "spark", "spark-secondary"]);
+        assert_eq!(groups(&ws), [None, None, Some("Spark"), Some("Spark")]);
+        assert_eq!(labels(&ws), ["5h limit", "Weekly limit", "5h limit", "Weekly limit"]);
+        assert!((ws[2].used - 0.40).abs() < 1e-9);
+        assert!((ws[3].used - 0.12).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_non_array_additional_rate_limits_is_ignored() {
+        for extras in [
+            r#"{"x":{"limit_name":"Spark","rate_limit":{"primary_window":{"used_percent":9,"limit_window_seconds":18000}}}}"#,
+            r#""nope""#,
+            "null",
+        ] {
+            let ws = windows(&format!(
+                r#"{{"rate_limit":{{"primary_window":{{"used_percent":1,"limit_window_seconds":18000}}}},"additional_rate_limits":{extras}}}"#
+            ));
+            assert_eq!(ids(&ws), ["primary"], "{extras}");
+        }
+    }
+
+    #[test]
+    fn a_monthly_primary_window_is_not_dropped() {
+        let ws = windows(
+            r#"{"rate_limit":{"primary_window":{"used_percent":16,"limit_window_seconds":2592000,
+            "reset_after_seconds":1838382,"reset_at":1790585722},"secondary_window":null},
+             "plan_type":"free"}"#,
+        );
+        assert_eq!(ids(&ws), ["primary"]);
+        assert_eq!(ws[0].label, "Monthly limit");
+        assert!((ws[0].used - 0.16).abs() < 1e-4);
+    }
 }
