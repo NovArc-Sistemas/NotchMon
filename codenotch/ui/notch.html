@@ -355,14 +355,21 @@ function resetCopy(ms){
   if(!ms) return '';
   const diff=ms-Date.now();
   if(diff<=0) return uiLang==='ru'?'Сброс…':'Resetting…';
-  if(diff<60*60*1000) return uiLang==='ru'
-    ? `Сброс через ${Math.max(1,Math.round(diff/60000))} мин`
-    : `Resets in ${Math.max(1,Math.round(diff/60000))} min`;
+  const min=Math.round(diff/60000); // rounded before the test, so 59m40s never reads "Resets in 60 min"
+  if(min<60) return uiLang==='ru'?`Сброс через ${Math.max(1,min)} мин`:`Resets in ${Math.max(1,min)} min`;
   const d=new Date(ms);
   const locale=uiLang==='ru'?'ru-RU':'en-US';
+  const resets=uiLang==='ru'?'Сброс:':'Resets';
+  // A weekday only names a day in the coming week: a Codex monthly reset 26 days out read as this Monday
+  if(daysApart(Date.now(),ms)>=7) return `${resets} ${d.toLocaleDateString(locale,{month:'short',day:'numeric'})}`;
   const t=d.toLocaleTimeString(locale,{hour:'numeric',minute:'2-digit'});
   if(diff<24*60*60*1000) return `${uiLang==='ru'?'Сброс в':'Resets at'} ${t}`;
-  return `${uiLang==='ru'?'Сброс':'Resets'} ${d.toLocaleDateString(locale,{weekday:'short'})} ${t}`;
+  return `${resets} ${d.toLocaleDateString(locale,{weekday:'short'})} ${t}`;
+}
+// Calendar days rather than 24-hour blocks, so a clock change cannot move the answer
+function daysApart(from,to){
+  const day=ms=>{const d=new Date(ms); return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();};
+  return Math.round((day(to)-day(from))/86400000);
 }
 
 function ago(ms){
