@@ -4,7 +4,12 @@
 //! Rules (upstream's discipline):
 //!   - the credential comes from Claude Code's own store (Windows: ~/.claude/.credentials.json), read only
 //!   - 401/403 → re-read the credential once and retry (Claude Code may have just refreshed the token) → still failing means needsAuth
-//!   - 429 → back off 60 s × 2^n capped at 15 min, Retry-After only raises it; the deadline is persisted
+//!   - 429 → back off 60 s × 2^n capped at 15 min, Retry-After only raises it (never past the cap); the deadline is persisted
+//!   - an expired token is never sent: the endpoint answers it with 429 + Retry-After ≈ 3600, not 401, so sending it
+//!     reads as "rate limited" for as long as the token stays stale (upstream's credentialExpired, no network)
+//!   - the token is renewed by running the standalone `claude -p` with an empty stdin shortly before it expires
+//!     (upstream's ClaudeTokenRefresher). Only that CLI writes ~/.claude/.credentials.json — Claude Code inside the
+//!     desktop app renews its own copy elsewhere — so without this the file rots eight hours after the last CLI run
 //!   - never invent a percentage on failure: keep the last reading marked stale, and the UI shows how old it is
 //!
 //! Reply (snake_case): { limits:[{kind,percent,resets_at}], five_hour:{utilization,resets_at}, seven_day:{...} }
@@ -20,6 +25,12 @@ const POLL_ACTIVE_SECS: u64 = 60;
 const POLL_IDLE_SECS: u64 = 300;
 const BACKOFF_BASE_SECS: u64 = 60;
 const BACKOFF_CAP_SECS: u64 = 900;
+/// Renew when this close to expiry. Must stay under Claude Code's own five minutes: its start-up renews the token
+/// only when now + 300 s >= expiresAt, so launching any earlier is a no-op that would be judged a failure
+const RENEW_MARGIN_MS: u64 = 4 * 60 * 1000;
+const RENEW_COOLDOWN_MS: u64 = 10 * 60 * 1000;
+const RENEW_TIMEOUT_SECS: u64 = 30;
+const EXPIRED_NOTE: &str = "Credential expired — run claude once in a terminal to renew it";
 
 static REFRESH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
@@ -99,8 +110,20 @@ fn persist(s: &UsageSnapshot) {
     }
 }
 
-/// Reads Claude Code's OAuth credential. Returns (token, expired hint).
-fn read_credentials() -> Option<(String, bool)> {
+struct Credential {
+    token: String,
+    /// ms epoch (None = the file names no expiry)
+    expires_at: Option<u64>,
+}
+
+impl Credential {
+    fn expired(&self, now: u64) -> bool {
+        self.expires_at.map(|e| e <= now).unwrap_or(false)
+    }
+}
+
+/// Reads Claude Code's OAuth credential.
+fn read_credentials() -> Option<Credential> {
     let home = dirs::home_dir()?;
     for name in [".credentials.json", "credentials.json"] {
         let p = home.join(".claude").join(name);
@@ -112,12 +135,8 @@ fn read_credentials() -> Option<(String, bool)> {
         };
         let oauth = v.get("claudeAiOauth").unwrap_or(&v);
         if let Some(tok) = oauth.get("accessToken").and_then(|x| x.as_str()) {
-            let expired = oauth
-                .get("expiresAt")
-                .and_then(|x| x.as_f64())
-                .map(|ms| (ms as u64) <= now_ms())
-                .unwrap_or(false);
-            return Some((tok.to_string(), expired));
+            let expires_at = oauth.get("expiresAt").and_then(|x| x.as_f64()).map(|ms| ms as u64);
+            return Some(Credential { token: tok.to_string(), expires_at });
         }
     }
     None
@@ -125,13 +144,136 @@ fn read_credentials() -> Option<(String, bool)> {
 
 /// For doctor: credential probe report (prints no secret values)
 pub fn probe_credentials() -> String {
+    let cli = match find_cli() {
+        Some(p) => format!("renews via {}", p.display()),
+        None => "no standalone claude CLI found to renew it".into(),
+    };
     match read_credentials() {
-        Some((tok, expired)) => format!(
-            "credential: found (token {} chars, {})",
-            tok.len(),
-            if expired { "expired — Claude Code refreshes it on its next use" } else { "valid" }
+        Some(c) => format!(
+            "credential: found (token {} chars, {}; {cli})",
+            c.token.len(),
+            if c.expired(now_ms()) { "expired" } else { "valid" }
         ),
         None => "credential: ~/.claude/.credentials.json not found (needsAuth; the desktop app may use another store — signing in once with the Claude Code CLI creates it)".into(),
+    }
+}
+
+// ---------------- token renewal (upstream's ClaudeTokenRefresher) ----------------
+
+/// Anything under these belongs to the desktop app: its bundled Claude Code keeps its token in the desktop app's
+/// own store and never writes ~/.claude/.credentials.json, so renewing with it would change nothing here
+fn is_desktop_owned(p: &std::path::Path) -> bool {
+    let s = p.to_string_lossy().to_ascii_lowercase().replace('/', "\\");
+    s.contains("\\anthropicclaude\\") || s.contains("\\claude\\claude-code\\") || s.contains("\\windowsapps\\")
+}
+
+/// The standalone Claude Code command: its own installer's location first, then global npm/pnpm/Volta, then PATH
+fn find_cli() -> Option<std::path::PathBuf> {
+    let mut v = Vec::new();
+    if let Some(h) = dirs::home_dir() {
+        v.push(h.join(".local").join("bin").join("claude.exe"));
+    }
+    if let Some(d) = dirs::config_dir() {
+        v.push(d.join("npm").join("claude.cmd"));
+    }
+    if let Some(d) = dirs::data_local_dir() {
+        v.push(d.join("pnpm").join("claude.cmd"));
+    }
+    if let Some(h) = dirs::home_dir() {
+        v.push(h.join(".volta").join("bin").join("claude.exe"));
+    }
+    if let Some(path) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path) {
+            v.push(dir.join("claude.exe"));
+            v.push(dir.join("claude.cmd"));
+        }
+    }
+    v.into_iter().find(|p| p.is_file() && !is_desktop_owned(p))
+}
+
+/// Whether a launch is worth making. Pure, so every branch is testable without a clock or a subprocess
+fn should_renew(expires_at: Option<u64>, now: u64, attempted_for: Option<u64>, last_attempt: Option<u64>) -> bool {
+    // Nothing read yet: never launch on a guess
+    let Some(exp) = expires_at else { return false };
+    // Plenty of time left — also where launching would do nothing, because the CLI's own gate has not opened
+    if exp > now + RENEW_MARGIN_MS {
+        return false;
+    }
+    // One attempt per token: a launch that failed to move the expiry leaves the same value here, and never runs again
+    if attempted_for == Some(exp) {
+        return false;
+    }
+    if let Some(t) = last_attempt {
+        if now.saturating_sub(t) < RENEW_COOLDOWN_MS {
+            return false;
+        }
+    }
+    true
+}
+
+/// `claude -p` with a null stdin starts up (which is where it renews an aged token), then exits non-zero for want
+/// of a prompt: no conversation, no transcript. Output goes nowhere — a token could in principle be echoed into it.
+fn run_renewal(cli: &std::path::Path) -> std::io::Result<()> {
+    use std::process::{Command, Stdio};
+    let mut cmd = Command::new(cli);
+    cmd.arg("-p").stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    // Launched from inside a Claude Code session, the child would take the host's auth and leave the file alone
+    for (k, _) in std::env::vars_os() {
+        let k = k.to_string_lossy();
+        if k == "CLAUDECODE" || k.starts_with("CLAUDE_CODE_") {
+            cmd.env_remove(k.as_ref());
+        }
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    let mut child = cmd.spawn()?;
+    let deadline = std::time::Instant::now() + Duration::from_secs(RENEW_TIMEOUT_SECS);
+    while child.try_wait()?.is_none() {
+        if std::time::Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    Ok(())
+}
+
+#[derive(Default)]
+struct Renewer {
+    attempted_for: Option<u64>,
+    last_attempt: Option<u64>,
+}
+
+impl Renewer {
+    /// Renews if the token is about to expire. Some(true) = the expiry moved; judged on the outcome, never on the
+    /// exit status, because refusing the empty prompt is a non-zero exit and a successful renewal at the same time
+    fn maybe_renew(&mut self, cred: &Credential) -> Option<bool> {
+        let now = now_ms();
+        if !should_renew(cred.expires_at, now, self.attempted_for, self.last_attempt) {
+            return None;
+        }
+        self.last_attempt = Some(now);
+        self.attempted_for = cred.expires_at;
+        let Some(cli) = find_cli() else {
+            crate::applog("claude: token about to expire and no standalone claude CLI found to renew it");
+            return Some(false);
+        };
+        if let Err(e) = run_renewal(&cli) {
+            crate::applog(&format!("claude: token renewal could not start ({}): {e}", cli.display()));
+            return Some(false);
+        }
+        let after = read_credentials().and_then(|c| c.expires_at);
+        let renewed = matches!((after, cred.expires_at), (Some(a), Some(b)) if a > b);
+        crate::applog(&if renewed {
+            format!("claude: token renewed via {}", cli.display())
+        } else {
+            format!("claude: ran {} but the token expiry did not move", cli.display())
+        });
+        Some(renewed)
     }
 }
 
@@ -247,7 +389,8 @@ fn fetch_once(token: &str) -> Result<Vec<LimitWindow>, FetchErr> {
 
 fn backoff_secs(consecutive: u32, retry_after_floor: u64) -> u64 {
     let exp = BACKOFF_BASE_SECS.saturating_mul(1u64 << consecutive.min(4));
-    exp.clamp(BACKOFF_BASE_SECS, BACKOFF_CAP_SECS).max(retry_after_floor)
+    // Capped so it always recovers on its own — an expired token used to earn Retry-After: 3600 every hour
+    exp.max(retry_after_floor).clamp(BACKOFF_BASE_SECS, BACKOFF_CAP_SECS)
 }
 
 fn set_and_broadcast(app: &AppHandle, mutate: impl FnOnce(&mut UsageSnapshot)) {
@@ -270,7 +413,15 @@ pub fn start(app: AppHandle) {
             let _ = app.emit("usage", &snap);
         }
         let mut consecutive_429: u32 = 0;
+        let mut renewer = Renewer::default();
         loop {
+            // Ahead of the back-off: renewing never touches the usage endpoint, and a fresh token deserves a fresh try
+            if let Some(cred) = read_credentials() {
+                if renewer.maybe_renew(&cred) == Some(true) {
+                    consecutive_429 = 0;
+                    set_and_broadcast(&app, |u| u.backoff_until = 0);
+                }
+            }
             // No requests inside the backoff window
             let bu = {
                 let st = app.state::<AppState>();
@@ -287,20 +438,22 @@ pub fn start(app: AppHandle) {
                     u.status = "needsAuth".into();
                     u.note = "No Claude Code credential found".into();
                 }),
-                Some((token, expired)) => {
+                // Expired is not signed out: keep the last reading, dimmed and dated, and send nothing
+                Some(cred) if cred.expired(now_ms()) => set_and_broadcast(&app, |u| {
+                    u.status = if u.windows.is_empty() { "needsAuth" } else { "stale" }.into();
+                    u.note = EXPIRED_NOTE.into();
+                }),
+                Some(cred) => {
+                    let token = cred.token;
                     // On 401/403 re-read the credential and retry once (Claude Code may have just refreshed it)
                     let result = match fetch_once(&token) {
                         Err(FetchErr::NeedsAuth) => match read_credentials() {
-                            Some((t2, _)) if t2 != token => fetch_once(&t2),
+                            Some(c2) if c2.token != token => fetch_once(&c2.token),
                             _ => Err(FetchErr::NeedsAuth),
                         },
                         other => other,
                     };
-                    let auth_note = if expired {
-                        "Credential expired — run any claude command (or chat with Claude) to refresh it"
-                    } else {
-                        "Credential rejected (switched accounts?)"
-                    };
+                    let auth_note = "Credential rejected (switched accounts?)";
                     match result {
                         Ok(windows) => {
                             consecutive_429 = 0;
@@ -352,4 +505,66 @@ pub fn start(app: AppHandle) {
             });
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const EXP: u64 = 1_000_000_000;
+
+    #[test]
+    fn renews_only_inside_the_margin() {
+        assert!(!should_renew(None, EXP, None, None), "never launch on a guess");
+        assert!(!should_renew(Some(EXP), EXP - RENEW_MARGIN_MS - 1, None, None), "plenty of time left");
+        assert!(should_renew(Some(EXP), EXP - RENEW_MARGIN_MS, None, None));
+        assert!(should_renew(Some(EXP), EXP + 3_600_000, None, None), "already expired still renews");
+    }
+
+    #[test]
+    fn one_attempt_per_token_and_a_cooldown() {
+        let now = EXP + 1;
+        assert!(!should_renew(Some(EXP), now, Some(EXP), None), "same token is never retried");
+        assert!(!should_renew(Some(EXP + 5), now, Some(EXP), Some(now - 1000)), "cooldown holds a new token back");
+        assert!(should_renew(Some(EXP + 5), now, Some(EXP), Some(now - RENEW_COOLDOWN_MS)));
+    }
+
+    #[test]
+    fn retry_after_never_exceeds_the_cap() {
+        assert_eq!(backoff_secs(0, 3600), BACKOFF_CAP_SECS);
+        assert_eq!(backoff_secs(0, 0), BACKOFF_BASE_SECS);
+        assert_eq!(backoff_secs(1, 300), 300);
+        assert_eq!(backoff_secs(9, 0), BACKOFF_CAP_SECS);
+    }
+
+    #[test]
+    fn desktop_bundled_cli_is_refused() {
+        use std::path::Path;
+        assert!(is_desktop_owned(Path::new(r"C:\Users\u\AppData\Local\AnthropicClaude\app-1.2.3\claude.exe")));
+        assert!(is_desktop_owned(Path::new(r"C:\Users\u\AppData\Roaming\Claude\claude-code\2.1.0\claude.exe")));
+        assert!(!is_desktop_owned(Path::new(r"C:\Users\u\.local\bin\claude.exe")));
+        assert!(!is_desktop_owned(Path::new(r"C:\Users\u\AppData\Roaming\npm\claude.cmd")));
+    }
+
+    #[test]
+    #[ignore = "Runs the installed standalone claude CLI; opt in for integration verification"]
+    fn live_renewal_runs_the_standalone_cli() {
+        let cli = find_cli().expect("a standalone claude CLI");
+        assert!(!is_desktop_owned(&cli));
+        let before = read_credentials().and_then(|c| c.expires_at);
+        let t = std::time::Instant::now();
+        run_renewal(&cli).expect("spawned");
+        assert!(t.elapsed() < Duration::from_secs(RENEW_TIMEOUT_SECS), "returned before the timeout");
+        let after = read_credentials().and_then(|c| c.expires_at);
+        assert!(after >= before, "the expiry never moves backwards");
+        eprintln!("cli: {}", cli.display());
+    }
+
+    #[test]
+    fn expired_is_judged_against_now() {
+        let c = Credential { token: "t".into(), expires_at: Some(EXP) };
+        assert!(c.expired(EXP));
+        assert!(!c.expired(EXP - 1));
+        assert!(!Credential { token: "t".into(), expires_at: None }.expired(EXP));
+    }
 }
