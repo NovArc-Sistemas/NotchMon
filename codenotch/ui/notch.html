@@ -137,6 +137,15 @@ function smallPct(v){
   return t.toFixed(1);
 }
 function pctText(f){ const v=f*100; return v>0&&v<1?smallPct(v):String(Math.round(v)); }
+// Both ends, since vendors disagree on which they print; the left half comes from the rounded used half, as their dashboards do
+function usedCopy(w){
+  const v=w.used*100;
+  let used, left;
+  if((v>0&&v<1)||(v>99&&v<100)){ used=smallPct(v); left=100-v>99.9?'>99.9':smallPct(Math.max(0,100-v)); }
+  else { const u=Math.round(v); used=String(u); left=String(Math.max(0,100-u)); }
+  if(w.derived) used='~'+used;
+  return uiLang==='ru'?`Использовано ${used}% · осталось ${left}%`:`${used}% Used · ${left}% left`;
+}
 
 let usage={status:'',windows:[],fetched_at:0,note:''};
 let codexSnap={status:'absent',windows:[],fetched_at:0,note:''};
@@ -168,7 +177,6 @@ const RU_TEXT={
   'Resetting…':'Сброс…',
   'Resets at':'Сброс в',
   'Resets':'Сброс',
-  'Used':'Использовано',
   'Working':'Работа',
   'Waiting':'Ожидание',
   'Streaming (network)':'Потоковая передача (сеть)',
@@ -395,7 +403,7 @@ function renderCard(){
       html+=`<div class="win">
         <div class="w-row"><span class="w-label">${esc(textCopy(w.label))}</span><span class="w-reset">${resetCopy(w.resets_at)}</span></div>
         <div class="w-track"><div class="w-fill" style="width:${(Math.min(w.used,1)*100).toFixed(0)}%;background:${tone(w.used)}"></div></div>
-        <div class="w-used">${w.derived?'~':''}${Math.round(w.used*100)}% ${textCopy('Used')}</div>
+        <div class="w-used">${esc(usedCopy(w))}</div>
       </div>`;
     }
     if(group) html+=`</div>`;
