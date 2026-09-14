@@ -219,30 +219,6 @@ pub fn apply_lang(app: &AppHandle, lang: &str) {
     broadcast(app);
 }
 
-/// The notch must never take focus: WS_EX_NOACTIVATE + WS_EX_TOOLWINDOW
-#[cfg(windows)]
-fn noactivate(app: &AppHandle) {
-    use windows::Win32::UI::WindowsAndMessaging::{
-        GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-    };
-    if let Some(w) = app.get_webview_window("notch") {
-        if let Ok(h) = w.hwnd() {
-            unsafe {
-                let hwnd =
-                    windows::Win32::Foundation::HWND(h.0 as isize as *mut core::ffi::c_void);
-                let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-                SetWindowLongPtrW(
-                    hwnd,
-                    GWL_EXSTYLE,
-                    ex | WS_EX_NOACTIVATE.0 as isize | WS_EX_TOOLWINDOW.0 as isize,
-                );
-            }
-        }
-    }
-}
-#[cfg(not(windows))]
-fn noactivate(_app: &AppHandle) {}
-
 // ---------------- commands ----------------
 
 #[tauri::command]
@@ -1175,7 +1151,6 @@ fn main() {
         .setup(move |app| {
             let handle = app.handle().clone();
             place_notch(&handle);
-            noactivate(&handle);
             if let Some(w) = handle.get_webview_window("notch") {
                 let _ = w.show();
             }
