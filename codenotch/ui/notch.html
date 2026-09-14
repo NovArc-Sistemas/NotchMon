@@ -362,7 +362,7 @@ function resetCopy(ms){
   const resets=uiLang==='ru'?'Сброс:':'Resets';
   // A weekday only names a day in the coming week: a Codex monthly reset 26 days out read as this Monday
   if(daysApart(Date.now(),ms)>=7) return `${resets} ${d.toLocaleDateString(locale,{month:'short',day:'numeric'})}`;
-  const t=d.toLocaleTimeString(locale,{hour:'numeric',minute:'2-digit'});
+  const t=d.toLocaleTimeString(locale,{hour:'numeric',minute:'2-digit',hourCycle:stateSnap.clock_24h?'h23':'h12'});
   if(diff<24*60*60*1000) return `${uiLang==='ru'?'Сброс в':'Resets at'} ${t}`;
   return `${resets} ${d.toLocaleDateString(locale,{weekday:'short'})} ${t}`;
 }
@@ -460,7 +460,15 @@ function esc(s){const d=document.createElement('div');d.textContent=s||'';return
 /* Hover: stays expanded while either the pill or the card is under the cursor; collapses after a 250 ms grace period (upstream motion rule) */
 const card=document.getElementById('card'), pill=document.getElementById('pill'), tail=document.getElementById('tail');
 let hideTimer=null;
-function showCard(){clearTimeout(hideTimer);card.classList.add('show');renderCard();armWatchdog();} // show first, then render: placeCard needs offsetHeight
+function showCard(){clearTimeout(hideTimer);card.classList.add('show');renderCard();armWatchdog();refreshClock();} // show first, then render: placeCard needs offsetHeight
+// Nothing is broadcast when the Windows clock format changes, so ask again each time the card opens
+function refreshClock(){
+  invoke('get_state').then(s=>{
+    if(!s||s.clock_24h===stateSnap.clock_24h) return;
+    stateSnap.clock_24h=s.clock_24h;
+    if(card.classList.contains('show')) renderCard();
+  }).catch(()=>{});
+}
 function hideCard(){card.classList.remove('show');reportHot();}
 function scheduleHide(){clearTimeout(hideTimer);hideTimer=setTimeout(hideCard,250);}
 // ===== Diagnostics + geometry =====

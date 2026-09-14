@@ -64,7 +64,7 @@ pub fn broadcast(app: &AppHandle) {
     let snap = {
         let store = st.store.lock().unwrap();
         let cfg = st.cfg.lock().unwrap();
-        store.snapshot(&cfg.lang, &resolved_lang(&cfg.lang), false)
+        store.snapshot(&cfg.lang, &resolved_lang(&cfg.lang), i18n::clock_24h(), false)
     };
     let _ = app.emit("state", &snap);
 }
@@ -249,7 +249,7 @@ fn noactivate(_app: &AppHandle) {}
 fn get_state(state: tauri::State<AppState>) -> state::Snapshot {
     let store = state.store.lock().unwrap();
     let cfg = state.cfg.lock().unwrap();
-    store.snapshot(&cfg.lang, &resolved_lang(&cfg.lang), false)
+    store.snapshot(&cfg.lang, &resolved_lang(&cfg.lang), i18n::clock_24h(), false)
 }
 
 #[tauri::command]
