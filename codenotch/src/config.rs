@@ -72,6 +72,17 @@ pub struct Config {
     /// leave the app running with no way to reach it.
     #[serde(default = "yes")]
     pub tray_visible: bool,
+    /// Names for the extra Claude rings, by organization UUID. Desktop's cache names no account, so
+    /// without one a ring reads "Claude (<first 8 of the organization>)"
+    #[serde(default)]
+    pub claude_names: std::collections::HashMap<String, String>,
+    /// Which window the Claude and Codex rings read: "session" (the 5-hour one, as upstream) or "weekly"
+    #[serde(default = "default_ring_reads")]
+    pub ring_reads: String,
+}
+
+fn default_ring_reads() -> String {
+    "session".into()
 }
 
 fn default_notch_y() -> f64 {
@@ -126,6 +137,8 @@ impl Default for Config {
             antigravity_model: default_antigravity_model(),
             notch_visible: true,
             tray_visible: true,
+            claude_names: Default::default(),
+            ring_reads: default_ring_reads(),
         }
     }
 }

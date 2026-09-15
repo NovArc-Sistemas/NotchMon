@@ -18,17 +18,19 @@ mod glyphs;
 mod trayicon;
 mod activity;
 mod diag;
+mod desktop_cache;
+mod codeburn;
 mod watcher;
 
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 
-/// Logical size of the notch window: the 70 pt pill column on the right plus room for the hover card
+/// Logical size of the notch window: the 84 pt pill column on the right plus room for the hover card
 /// and its tail on the left. `fitZoom` in ui/notch.html divides by the same width.
-pub const NOTCH_W: f64 = 360.0;
+pub const NOTCH_W: f64 = 380.0;
 /// Hand-bumped build tag, written to run.log at startup so a log can always be matched to the exe that wrote it.
-pub const BUILD: &str = "r31";
-pub const NOTCH_H: f64 = 520.0; // 300 clipped the card once it held three window blocks plus the session list; 460 clipped Antigravity's two model groups once the reading was stale and an agent was working
+pub const BUILD: &str = "r33";
+pub const NOTCH_H: f64 = 760.0; // 300 clipped the card once it held three window blocks plus the session list; 460 clipped Antigravity's two model groups once the reading was stale and an agent was working; 520 clipped a card carrying the Consumo section
 
 pub struct AppState {
     pub store: Mutex<state::Store>,
@@ -38,6 +40,10 @@ pub struct AppState {
     pub codex: Mutex<usage::UsageSnapshot>,
     pub cursor: Mutex<usage::UsageSnapshot>,
     pub antigravity: Mutex<usage::UsageSnapshot>,
+    /// Claude accounts Desktop is signed into besides the `claude` cell's, fed from its cache
+    pub claude_accounts: Mutex<Vec<usage::ClaudeAccount>>,
+    /// API-equivalent spend from the local codeburn CLI (the pill's NOVARC cell and every Consumo surface)
+    pub codeburn: Mutex<codeburn::Snapshot>,
     /// Provider glyph cache, collected at launch and again on a tray refresh
     pub glyphs: Mutex<std::collections::HashMap<String, glyphs::Glyph>>,
     /// Working state of the non-Claude providers (Cursor reports it; Codex and Antigravity are inferred from recent writes)
@@ -234,6 +240,16 @@ fn get_usage(state: tauri::State<AppState>) -> usage::UsageSnapshot {
 }
 
 #[tauri::command]
+fn get_claude_accounts(state: tauri::State<AppState>) -> Vec<usage::ClaudeAccount> {
+    state.claude_accounts.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn get_codeburn(state: tauri::State<AppState>) -> codeburn::Snapshot {
+    state.codeburn.lock().unwrap().clone()
+}
+
+#[tauri::command]
 fn refresh_usage(app: AppHandle) {
     {
         let st = app.state::<AppState>();
@@ -244,6 +260,7 @@ fn refresh_usage(app: AppHandle) {
     codex::request_refresh();
     cursor::request_refresh();
     antigravity::request_refresh();
+    codeburn::request_refresh();
 }
 
 #[tauri::command]
@@ -593,10 +610,27 @@ fn ring_window<'a>(
     let by_id = |id: &str| windows.iter().find(|w| w.id == id);
     match provider {
         "claude" => by_id("session"),
+        p if p.starts_with("claude:") => by_id("session"),
         "codex" => windows.first(),
         "cursor" => by_id("included").or_else(|| by_id("api")),
         _ => antigravity_lane(windows, antigravity_limit, antigravity_model),
     }
+}
+
+/// The weekly window, for `ring_reads = "weekly"`. None where a provider has none (Codex's free plan is
+/// monthly, Cursor bills by cycle): the ring then reads what it always has. `weeklyOf` in ui/notch.html agrees
+fn weekly_window<'a>(provider: &str, windows: &'a [usage::LimitWindow]) -> Option<&'a usage::LimitWindow> {
+    let by_id = |id: &str| windows.iter().find(|w| w.id == id);
+    match provider {
+        p if p == "claude" || p.starts_with("claude:") => by_id("weekly_all").or_else(|| by_id("seven_day")),
+        "codex" => windows.iter().find(|w| w.label == "Weekly limit"),
+        _ => None,
+    }
+}
+
+#[tauri::command]
+fn get_ring_reads(state: tauri::State<AppState>) -> String {
+    state.cfg.lock().unwrap().ring_reads.clone()
 }
 
 /// Antigravity's lane, chosen as the Mac app's "Notch reads" and "Model data" choose it: within the
@@ -649,6 +683,12 @@ fn snapshot_of(app: &AppHandle, id: &str) -> usage::UsageSnapshot {
         "codex" => st.codex.lock().unwrap().clone(),
         "cursor" => st.cursor.lock().unwrap().clone(),
         "gemini" => st.antigravity.lock().unwrap().clone(),
+        // An account that has since left the cache is absent, never silently the `claude` cell's reading
+        a if a.starts_with("claude:") => {
+            let accounts = st.claude_accounts.lock().unwrap();
+            let found = accounts.iter().find(|x| x.id == a).map(|x| x.snap.clone());
+            found.unwrap_or_else(|| usage::UsageSnapshot { status: "absent".into(), ..Default::default() })
+        }
         _ => st.usage.lock().unwrap().clone(),
     }
 }
@@ -660,12 +700,14 @@ fn ring_pct(app: &AppHandle, provider: &str) -> Option<u32> {
     if snap.status == "absent" {
         return None;
     }
-    let (limit, model) = {
+    let (limit, model, reads) = {
         let st = app.state::<AppState>();
         let c = st.cfg.lock().unwrap();
-        (c.antigravity_limit.clone(), c.antigravity_model.clone())
+        (c.antigravity_limit.clone(), c.antigravity_model.clone(), c.ring_reads.clone())
     };
-    ring_window(provider, &snap.windows, &limit, &model)
+    let weekly = if reads == "weekly" { weekly_window(provider, &snap.windows) } else { None };
+    weekly
+        .or_else(|| ring_window(provider, &snap.windows, &limit, &model))
         .filter(|w| w.count.is_none())
         .map(|w| (w.used * 100.0).round().clamp(0.0, 100.0) as u32)
 }
@@ -686,15 +728,17 @@ struct TrayOption {
 
 #[tauri::command]
 fn get_tray_options(app: AppHandle) -> Vec<TrayOption> {
-    TRAY_PROVIDER_IDS
-        .iter()
-        .map(|id| TrayOption {
-            id: (*id).to_string(),
-            label: provider_label(id).to_string(),
-            status: snapshot_of(&app, id).status,
-            used: ring_pct(&app, id),
-        })
-        .collect()
+    let extras: Vec<String> =
+        app.state::<AppState>().claude_accounts.lock().unwrap().iter().map(|a| a.id.clone()).collect();
+    // The extra Claude rings sit right after the `claude` one, as in the notch
+    let ids = TRAY_PROVIDER_IDS[..1].iter().map(|s| s.to_string()).chain(extras).chain(TRAY_PROVIDER_IDS[1..].iter().map(|s| s.to_string()));
+    ids.map(|id| TrayOption {
+        label: provider_name(&app, &id),
+        status: snapshot_of(&app, &id).status,
+        used: ring_pct(&app, &id),
+        id,
+    })
+    .collect()
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -904,6 +948,75 @@ fn reset_notch_position(app: AppHandle) {
     reset_bar(&app);
 }
 
+// ---------------- the Consumo panel ----------------
+
+/// Logical width of the Consumo panel window; its height follows the page's content
+const CONSUMO_W: f64 = 400.0;
+/// Logical height the page last reported, so a re-dock keeps it
+static CONSUMO_H: Mutex<f64> = Mutex::new(700.0);
+
+/// Docks the panel beside the pill: its right edge a little left of the pill's fold tab, vertically
+/// centred on the pill, kept inside the primary monitor.
+fn dock_consumo(app: &AppHandle) {
+    let (Some(panel), Some(notch)) = (app.get_webview_window("consumo"), app.get_webview_window("notch")) else { return };
+    let Ok(Some(mon)) = notch.primary_monitor() else { return };
+    let ms = mon.scale_factor();
+    let h = *CONSUMO_H.lock().unwrap();
+    let (pw, ph) = ((CONSUMO_W * ms).round() as i32, (h * ms).round() as i32);
+    let _ = panel.set_size(tauri::PhysicalSize::new(pw as u32, ph as u32));
+    // pill (84, scaled by the size slider) + its 16 px tab + a 10 px gap
+    let pill = (84.0 * ui_scale(app) + 26.0) * ms;
+    let right = mon.position().x + mon.size().width as i32;
+    let x = right - pill.round() as i32 - pw;
+    let centre = match (notch.outer_position(), notch.outer_size()) {
+        (Ok(p), Ok(s)) => p.y + s.height as i32 / 2,
+        _ => mon.position().y + mon.size().height as i32 / 2,
+    };
+    let (top, bottom) = (mon.position().y, mon.position().y + mon.size().height as i32);
+    let y = (centre - ph / 2).clamp(top, (bottom - ph).max(top));
+    let _ = panel.set_position(tauri::PhysicalPosition::new(x, y));
+}
+
+/// Opens the panel on one tool ("all", "claude", "codex"); a second press on the NOVARC cell while it
+/// is open on "all" closes it.
+#[tauri::command]
+fn open_consumo(app: AppHandle, provider: String) {
+    let Some(w) = app.get_webview_window("consumo") else { return };
+    if provider == "all" && w.is_visible().unwrap_or(false) {
+        hide_consumo(&w);
+        return;
+    }
+    let _ = app.emit_to("consumo", "consumo_open", &provider);
+    dock_consumo(&app);
+    let _ = w.show();
+    let _ = w.set_focus();
+    // The panel sits over the hover card's spot, so the notch holds its card while the panel is up
+    let _ = app.emit_to("notch", "consumo_visible", true);
+}
+
+fn hide_consumo(w: &tauri::WebviewWindow) {
+    let _ = w.hide();
+    let _ = w.emit_to("notch", "consumo_visible", false);
+}
+
+#[tauri::command]
+fn close_consumo(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("consumo") {
+        hide_consumo(&w);
+    }
+}
+
+/// The page measures itself after every change (a section opening, a new reading) so the window never
+/// needs a scrollbar: it is exactly as tall as the panel, up to the monitor.
+#[tauri::command]
+fn consumo_height(app: AppHandle, h: f64) {
+    if !(100.0..=4000.0).contains(&h) {
+        return;
+    }
+    *CONSUMO_H.lock().unwrap() = h.ceil();
+    dock_consumo(&app);
+}
+
 #[tauri::command]
 fn open_settings(app: AppHandle) {
     if let Some(w) = app.get_webview_window("settings") {
@@ -920,6 +1033,13 @@ pub fn provider_label(id: &str) -> &'static str {
         "gemini" => "Antigravity",
         _ => "Claude",
     }
+}
+
+/// A provider's name, including the extra Claude accounts `provider_label` cannot know
+fn provider_name(app: &AppHandle, id: &str) -> String {
+    let st = app.state::<AppState>();
+    let accounts = st.claude_accounts.lock().unwrap();
+    accounts.iter().find(|a| a.id == id).map(|a| a.name.clone()).unwrap_or_else(|| provider_label(id).to_string())
 }
 
 /// Every provider the tray menu can offer, in the order the notch shows them.
@@ -952,7 +1072,7 @@ fn paint_tray(app: &AppHandle, mode: &str, slots: &[config::TraySlot], values: &
         .map(|(slot, v)| {
             format!(
                 "{} {}",
-                provider_label(&slot.provider),
+                provider_name(app, &slot.provider),
                 v.map(|p| format!("{p}%")).unwrap_or_else(|| "—".into())
             )
         })
@@ -1104,12 +1224,20 @@ fn main() {
             codex: Mutex::new(codex::load_persisted()),
             cursor: Mutex::new(cursor::load_persisted()),
             antigravity: Mutex::new(antigravity::load_persisted()),
+            claude_accounts: Mutex::new(Vec::new()),
+            codeburn: Mutex::new(codeburn::load_persisted()),
             glyphs: Mutex::new(Default::default()),
             activity: Mutex::new(Vec::new()),
         })
         .invoke_handler(tauri::generate_handler![
             get_state,
             get_usage,
+            get_claude_accounts,
+            get_ring_reads,
+            get_codeburn,
+            open_consumo,
+            close_consumo,
+            consumo_height,
             get_codex,
             get_cursor,
             get_antigravity,
@@ -1166,6 +1294,16 @@ fn main() {
                     }
                 });
             }
+            // The panel hides rather than closes, for the same reason (Alt+F4 on it must not destroy it)
+            if let Some(w) = handle.get_webview_window("consumo") {
+                let hide_me = w.clone();
+                w.on_window_event(move |e| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = e {
+                        api.prevent_close();
+                        hide_consumo(&hide_me);
+                    }
+                });
+            }
             start_tray_updater(handle.clone());
             // Honours the saved switches: a notch hidden last time stays hidden.
             apply_visibility(&handle);
@@ -1175,6 +1313,7 @@ fn main() {
             codex::start(handle.clone());
             cursor::start(handle.clone());
             antigravity::start(handle.clone());
+            codeburn::start(handle.clone());
             activity::start(handle.clone());
             // Collecting glyphs may read icon resources out of a few executables; do it off the main thread and push when done
             let gh = handle.clone();
@@ -1218,7 +1357,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{cursor_in_hot, ring_window, HOT_PAD};
+    use super::{cursor_in_hot, ring_window, weekly_window, HOT_PAD};
     use crate::usage::LimitWindow;
 
     /// Real values from the run.log in #106: a 2560×1600 display at 150 %.
@@ -1304,6 +1443,19 @@ mod tests {
 
     fn pick<'a>(provider: &str, windows: &'a [LimitWindow]) -> Option<&'a str> {
         ring_window(provider, windows, "automatic", "gemini").map(|w| w.id.as_str())
+    }
+
+    #[test]
+    fn weekly_reads_the_weekly_window_where_there_is_one() {
+        let claude = [win("session", 0.25), win("weekly_all", 0.1), win("weekly_scoped", 0.6)];
+        assert_eq!(weekly_window("claude", &claude).map(|w| w.id.as_str()), Some("weekly_all"));
+        assert_eq!(weekly_window("claude:0000000b", &[win("seven_day", 0.4)]).map(|w| w.id.as_str()), Some("seven_day"));
+        let mut weekly = win("secondary", 0.2);
+        weekly.label = "Weekly limit".into();
+        assert_eq!(weekly_window("codex", &[win("primary", 0.1), weekly]).map(|w| w.id.as_str()), Some("secondary"));
+        // Free Codex is monthly only, and Cursor has no week: both keep their usual ring
+        assert!(weekly_window("codex", &[win("primary", 0.1)]).is_none());
+        assert!(weekly_window("cursor", &[win("included", 0.3)]).is_none());
     }
 
     fn lane<'a>(windows: &'a [LimitWindow], limit: &str, model: &str) -> Option<&'a str> {

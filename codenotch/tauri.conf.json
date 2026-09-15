@@ -25,6 +25,20 @@
         "focusable": false
       },
       {
+        "label": "consumo",
+        "title": "Codenotch Usage",
+        "url": "consumo.html",
+        "width": 400,
+        "height": 700,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": false,
+        "visible": false
+      },
+      {
         "label": "settings",
         "title": "Codenotch Settings",
         "url": "settings.html",

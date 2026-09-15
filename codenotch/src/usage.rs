@@ -85,6 +85,89 @@ pub struct UsageSnapshot {
     pub note: String,
     #[serde(default)]
     pub backoff_until: u64,
+    /// "desktop" when the windows came from Claude Desktop's cache. `fetched_at` is then the response's own
+    /// date and lags by Desktop's refresh interval, so the page judges staleness by `status` alone
+    #[serde(default)]
+    pub source: String,
+}
+
+/// A Claude account Desktop is signed into besides the one in the `claude` cell. Its limits come from
+/// Desktop's cache only — there is no credential for it here, so it is never fetched
+#[derive(Debug, Clone, Serialize)]
+pub struct ClaudeAccount {
+    /// `claude:<first 8 of the organization>`
+    pub id: String,
+    pub name: String,
+    pub snap: UsageSnapshot,
+}
+
+/// Desktop refreshes its usage every few minutes while it runs; a reading this recent is taken as live and
+/// the network is not asked. Past it, the OAuth path runs as before
+const CACHE_FRESH_MS: u64 = 30 * 60 * 1000;
+const CACHE_NOTE: &str = "From Claude Desktop";
+
+/// The organization the CLI credential belongs to, so Desktop's reading lands on the right ring
+// ponytail: Claude Code rewrites this file often; a torn read is None for one poll, and the ring falls back to the first org
+fn cli_org() -> Option<String> {
+    let text = std::fs::read_to_string(dirs::home_dir()?.join(".claude.json")).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&text).ok()?;
+    v.pointer("/oauthAccount/organizationUuid")?.as_str().map(str::to_string)
+}
+
+/// The reading that feeds the `claude` cell, and the others. The CLI's organization when there is one,
+/// otherwise the first in the cache — sorted by organization, so the rings never swap places
+fn split_readings(
+    readings: Vec<crate::desktop_cache::Reading>,
+    cli_org: Option<&str>,
+) -> (Option<crate::desktop_cache::Reading>, Vec<crate::desktop_cache::Reading>) {
+    let primary = cli_org.map(str::to_string).or_else(|| readings.first().map(|r| r.org.clone()));
+    let (mine, rest): (Vec<_>, Vec<_>) = readings.into_iter().partition(|r| Some(&r.org) == primary.as_ref());
+    (mine.into_iter().next(), rest)
+}
+
+/// A cached reading as a cell shows it. A window whose reset has passed since has rolled over and its
+/// number with it: ~0 with no reset time, rather than an old percentage for a window that already ended
+fn snapshot_from(r: &crate::desktop_cache::Reading, now: u64) -> UsageSnapshot {
+    let windows = r
+        .windows
+        .iter()
+        .cloned()
+        .map(|mut w| {
+            if w.resets_at.is_some_and(|t| t <= now) {
+                w.used = 0.0;
+                w.resets_at = None;
+                w.derived = true;
+            }
+            w
+        })
+        .collect();
+    UsageSnapshot {
+        status: if now.saturating_sub(r.captured_at) < CACHE_FRESH_MS { "ok" } else { "stale" }.into(),
+        windows,
+        fetched_at: r.captured_at,
+        note: CACHE_NOTE.into(),
+        backoff_until: 0,
+        source: "desktop".into(),
+    }
+}
+
+fn publish_accounts(app: &AppHandle, extras: &[crate::desktop_cache::Reading]) {
+    let st = app.state::<AppState>();
+    let names = st.cfg.lock().unwrap().claude_names.clone();
+    let now = now_ms();
+    let list: Vec<ClaudeAccount> = extras
+        .iter()
+        .map(|r| {
+            let short = r.org.get(..8).unwrap_or(&r.org);
+            ClaudeAccount {
+                id: format!("claude:{short}"),
+                name: names.get(&r.org).cloned().unwrap_or_else(|| format!("Claude ({short})")),
+                snap: snapshot_from(r, now),
+            }
+        })
+        .collect();
+    *st.claude_accounts.lock().unwrap() = list.clone();
+    let _ = app.emit("claude_accounts", &list);
 }
 
 fn store_path() -> std::path::PathBuf {
@@ -300,7 +383,7 @@ fn label_for(kind: &str) -> String {
     }
 }
 
-fn parse_response(v: &serde_json::Value) -> Vec<LimitWindow> {
+pub(crate) fn parse_response(v: &serde_json::Value) -> Vec<LimitWindow> {
     let mut out: Vec<LimitWindow> = Vec::new();
     if let Some(arr) = v.get("limits").and_then(|x| x.as_array()) {
         for l in arr {
@@ -416,6 +499,25 @@ pub fn start(app: AppHandle) {
         let mut consecutive_429: u32 = 0;
         let mut renewer = Renewer::default();
         loop {
+            // Desktop's cache first: free, and the only source for an account the CLI is not signed into
+            let (primary, extras) = split_readings(crate::desktop_cache::read_all(), cli_org().as_deref());
+            publish_accounts(&app, &extras);
+            if let Some(r) = primary {
+                let now = now_ms();
+                let newer = app.state::<AppState>().usage.lock().unwrap().fetched_at < r.captured_at;
+                if newer {
+                    set_and_broadcast(&app, |u| {
+                        let backoff_until = u.backoff_until;
+                        *u = snapshot_from(&r, now);
+                        u.backoff_until = backoff_until;
+                    });
+                }
+                // Desktop is live for this account: no request, and no token renewal either
+                if now.saturating_sub(r.captured_at) < CACHE_FRESH_MS {
+                    pause(&app);
+                    continue;
+                }
+            }
             // Ahead of the back-off: renewing never touches the usage endpoint, and a fresh token deserves a fresh try
             if let Some(cred) = read_credentials() {
                 if renewer.maybe_renew(&cred) == Some(true) {
@@ -435,14 +537,20 @@ pub fn start(app: AppHandle) {
                 continue;
             }
             match read_credentials() {
+                // Keep a reading Desktop left behind, dimmed and dated, rather than blanking it
+                // A Desktop reading keeps its own note: telling a Desktop user to run the CLI is no help
                 None => set_and_broadcast(&app, |u| {
-                    u.status = "needsAuth".into();
-                    u.note = "No Claude Code credential found".into();
+                    u.status = if u.windows.is_empty() { "needsAuth" } else { "stale" }.into();
+                    if u.source != "desktop" {
+                        u.note = "No Claude Code credential found".into();
+                    }
                 }),
                 // Expired is not signed out: keep the last reading, dimmed and dated, and send nothing
                 Some(cred) if cred.expired(now_ms()) => set_and_broadcast(&app, |u| {
                     u.status = if u.windows.is_empty() { "needsAuth" } else { "stale" }.into();
-                    u.note = EXPIRED_NOTE.into();
+                    if u.source != "desktop" {
+                        u.note = EXPIRED_NOTE.into();
+                    }
                 }),
                 Some(cred) => {
                     let token = cred.token;
@@ -464,6 +572,7 @@ pub fn start(app: AppHandle) {
                                 u.fetched_at = now_ms();
                                 u.note.clear();
                                 u.backoff_until = 0;
+                                u.source.clear();
                             });
                         }
                         Err(FetchErr::NeedsAuth) => set_and_broadcast(&app, |u| {
@@ -492,20 +601,20 @@ pub fn start(app: AppHandle) {
                     }
                 }
             }
-            // 60 s while a session is active, 300 s otherwise (upstream throttling discipline)
-            let active = {
-                let st = app.state::<AppState>();
-                let store = st.store.lock().unwrap();
-                let s = store.snapshot("en", "en", false, false);
-                !s.sessions.is_empty()
-            };
-            sleep_interruptible(if active {
-                POLL_ACTIVE_SECS
-            } else {
-                POLL_IDLE_SECS
-            });
+            pause(&app);
         }
     });
+}
+
+/// 60 s while a session is active, 300 s otherwise (upstream throttling discipline)
+fn pause(app: &AppHandle) {
+    let active = {
+        let st = app.state::<AppState>();
+        let store = st.store.lock().unwrap();
+        let s = store.snapshot("en", "en", false, false);
+        !s.sessions.is_empty()
+    };
+    sleep_interruptible(if active { POLL_ACTIVE_SECS } else { POLL_IDLE_SECS });
 }
 
 #[cfg(test)]
@@ -567,5 +676,42 @@ mod tests {
         assert!(c.expired(EXP));
         assert!(!c.expired(EXP - 1));
         assert!(!Credential { token: "t".into(), expires_at: None }.expired(EXP));
+    }
+
+    fn reading(org: &str) -> crate::desktop_cache::Reading {
+        crate::desktop_cache::Reading { org: org.into(), windows: Vec::new(), captured_at: 0 }
+    }
+
+    #[test]
+    fn the_cli_account_keeps_the_claude_cell() {
+        let (p, rest) = split_readings(vec![reading("a"), reading("b")], Some("b"));
+        assert_eq!(p.unwrap().org, "b");
+        assert_eq!(rest.iter().map(|r| r.org.as_str()).collect::<Vec<_>>(), ["a"]);
+    }
+
+    #[test]
+    fn without_a_cli_account_the_first_org_takes_the_claude_cell() {
+        let (p, rest) = split_readings(vec![reading("a"), reading("b")], None);
+        assert_eq!(p.unwrap().org, "a");
+        assert_eq!(rest.len(), 1);
+        // A CLI account Desktop has no entry for: no cached reading, and every cached org is an extra
+        let (p, rest) = split_readings(vec![reading("a")], Some("z"));
+        assert!(p.is_none());
+        assert_eq!(rest.len(), 1);
+    }
+
+    #[test]
+    fn a_window_that_reset_since_the_reading_shows_as_rolled_over() {
+        let mut r = reading("a");
+        r.captured_at = EXP;
+        r.windows = vec![
+            LimitWindow { id: "session".into(), used: 0.4, resets_at: Some(EXP + 10), ..Default::default() },
+            LimitWindow { id: "seven_day".into(), used: 0.5, resets_at: Some(EXP + CACHE_FRESH_MS * 10), ..Default::default() },
+        ];
+        let s = snapshot_from(&r, EXP + 20);
+        assert_eq!(s.status, "ok");
+        assert_eq!((s.windows[0].used, s.windows[0].resets_at, s.windows[0].derived), (0.0, None, true));
+        assert_eq!(s.windows[1].used, 0.5);
+        assert_eq!(snapshot_from(&r, EXP + CACHE_FRESH_MS).status, "stale");
     }
 }
