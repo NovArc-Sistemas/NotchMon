@@ -155,6 +155,6 @@ keeps its author.
 
 ## License
 
-MIT; see `LICENSE`, which also lists the third-party notices. The Codenotch name and design
+MIT; see `LICENSE`, and `NOTICE.md` for the third-party notices. The Codenotch name and design
 belong to the upstream author, and the NOVARC symbol is a trademark of NovArc Sistemas that is
 not covered by the MIT terms.
