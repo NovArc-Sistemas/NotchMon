@@ -1,6 +1,7 @@
 MIT License
 
 Copyright (c) 2026 Im-Midi (NG) and contributors
+Copyright (c) 2026 NovArc Sistemas
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -28,5 +29,8 @@ Third-party notices
   Copyright (c) LobeHub); see codenotch/glyphs/NOTICE.md. The marks remain the
   trademarks of Anthropic, OpenAI, Anysphere (Cursor) and Google respectively.
 - codenotch/icons/icon.ico and tray.png are derived from the upstream Codenotch
-  app icon by @vinzdg and are used here only for the upstream contribution;
-  their license follows the upstream repository.
+  app icon by @vinzdg (https://github.com/vinzdg/codenotch, MIT, Copyright (c)
+  2026 Vinz). The Codenotch name and design belong to the upstream author.
+- The NOVARC symbol embedded in codenotch/ui/notch.html and
+  codenotch/ui/consumo.html is a trademark of NovArc Sistemas. It is not
+  licensed under the MIT terms above: do not reuse it outside this app.
