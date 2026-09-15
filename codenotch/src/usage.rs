@@ -4,7 +4,7 @@
 //! Rules (upstream's discipline):
 //!   - the credential comes from Claude Code's own store (Windows: ~/.claude/.credentials.json), read only
 //!   - 401/403 → re-read the credential once and retry (Claude Code may have just refreshed the token) → still failing means needsAuth
-//!   - 429 → back off 60 s × 2^n capped at 15 min, Retry-After only raises it (never past the cap); the deadline is persisted
+//!   - 429 → back off 60 s × 2^n capped at 15 min, Retry-After only raises it, even past the cap; the deadline is persisted
 //!   - an expired token is never sent: the endpoint answers it with 429 + Retry-After ≈ 3600, not 401, so sending it
 //!     reads as "rate limited" for as long as the token stays stale (upstream's credentialExpired, no network)
 //!   - the token is renewed by running the standalone `claude -p` with an empty stdin shortly before it expires
@@ -389,8 +389,9 @@ fn fetch_once(token: &str) -> Result<Vec<LimitWindow>, FetchErr> {
 
 fn backoff_secs(consecutive: u32, retry_after_floor: u64) -> u64 {
     let exp = BACKOFF_BASE_SECS.saturating_mul(1u64 << consecutive.min(4));
-    // Capped so it always recovers on its own — an expired token used to earn Retry-After: 3600 every hour
-    exp.max(retry_after_floor).clamp(BACKOFF_BASE_SECS, BACKOFF_CAP_SECS)
+    // The server's Retry-After is honoured in full: with expired tokens no longer
+    // sent, a long one is a real rate limit, and retrying early only earns another.
+    exp.clamp(BACKOFF_BASE_SECS, BACKOFF_CAP_SECS).max(retry_after_floor)
 }
 
 fn set_and_broadcast(app: &AppHandle, mutate: impl FnOnce(&mut UsageSnapshot)) {
@@ -531,7 +532,7 @@ mod tests {
 
     #[test]
     fn retry_after_never_exceeds_the_cap() {
-        assert_eq!(backoff_secs(0, 3600), BACKOFF_CAP_SECS);
+        assert_eq!(backoff_secs(0, 3600), 3600);
         assert_eq!(backoff_secs(0, 0), BACKOFF_BASE_SECS);
         assert_eq!(backoff_secs(1, 300), 300);
         assert_eq!(backoff_secs(9, 0), BACKOFF_CAP_SECS);
