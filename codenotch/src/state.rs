@@ -60,6 +60,8 @@ pub struct Snapshot {
     pub lang: String,
     /// The actual language resolved on the Rust side (WebView2's navigator.language is unreliable)
     pub lang_resolved: String,
+    /// Whether reset times use a 24-hour clock, from the Windows region settings
+    pub clock_24h: bool,
     /// Whether dragging / wheel resizing is allowed (the page enables the gestures from it)
     pub drag: bool,
 }
@@ -243,7 +245,7 @@ impl Store {
         self.map.get(id).map(|s| s.ppid).filter(|p| *p != 0)
     }
 
-    pub fn snapshot(&self, lang: &str, lang_resolved: &str, drag: bool) -> Snapshot {
+    pub fn snapshot(&self, lang: &str, lang_resolved: &str, clock_24h: bool, drag: bool) -> Snapshot {
         let mut sessions: Vec<Session> = self.map.values().cloned().collect();
         let rank = |st: &str| match st {
             ST_ATTENTION => 0,
@@ -274,6 +276,7 @@ impl Store {
             counts,
             lang: lang.to_string(),
             lang_resolved: lang_resolved.to_string(),
+            clock_24h,
             drag,
         }
     }

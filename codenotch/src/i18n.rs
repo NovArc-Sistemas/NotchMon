@@ -25,6 +25,53 @@ pub fn resolve_auto() -> &'static str {
     "en"
 }
 
+/// Whether the region settings write times on a 24-hour clock. The page can't tell: WebView2's
+/// locale follows the browser language, not the regional format.
+pub fn clock_24h() -> bool {
+    time_format().is_some_and(|pattern| is_24h_pattern(&pattern))
+}
+
+fn time_format() -> Option<String> {
+    #[cfg(windows)]
+    unsafe {
+        use windows::core::PCWSTR;
+        use windows::Win32::Globalization::{GetLocaleInfoEx, LOCALE_SSHORTTIME, LOCALE_STIMEFORMAT};
+        // The taskbar clock shows the short time, or the long time once it shows seconds; the two are set separately
+        let kind = if taskbar_shows_seconds() { LOCALE_STIMEFORMAT } else { LOCALE_SSHORTTIME };
+        let mut buf = [0u16; 80];
+        let n = GetLocaleInfoEx(PCWSTR::null(), kind, Some(&mut buf));
+        if n > 0 {
+            return Some(String::from_utf16_lossy(&buf[..(n as usize - 1)]));
+        }
+    }
+    None
+}
+
+#[cfg(windows)]
+fn taskbar_shows_seconds() -> bool {
+    use windows::core::w;
+    use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
+    let mut value = 0u32;
+    let mut size = std::mem::size_of::<u32>() as u32;
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            w!("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"),
+            w!("ShowSecondsInSystemClock"),
+            RRF_RT_REG_DWORD,
+            None,
+            Some((&mut value as *mut u32).cast()),
+            Some(&mut size),
+        )
+    };
+    status.is_ok() && value != 0
+}
+
+/// "HH:mm" against "hh:mm tt"; text between single quotes is literal.
+fn is_24h_pattern(pattern: &str) -> bool {
+    pattern.split('\'').step_by(2).any(|part| part.contains('H'))
+}
+
 pub fn tr(lang: &str, key: &str) -> &'static str {
     let l = if lang == "auto" { resolve_auto() } else { lang };
     match (l, key) {
@@ -156,5 +203,15 @@ mod tests {
     #[test]
     fn unknown_language_keeps_the_english_fallback() {
         assert_eq!(tr("xx", "settings"), "Settings…");
+    }
+
+    #[test]
+    fn the_hour_symbol_outside_quotes_decides_the_clock() {
+        assert!(super::is_24h_pattern("HH:mm"));
+        assert!(super::is_24h_pattern("H:mm"));
+        assert!(super::is_24h_pattern("HH' h 'mm"));
+        assert!(!super::is_24h_pattern("hh:mm tt"));
+        assert!(!super::is_24h_pattern("tt hh:mm"));
+        assert!(!super::is_24h_pattern("h:mm 'Hrs'"));
     }
 }

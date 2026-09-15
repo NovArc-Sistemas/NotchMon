@@ -495,7 +495,7 @@ pub fn start(app: AppHandle) {
             let active = {
                 let st = app.state::<AppState>();
                 let store = st.store.lock().unwrap();
-                let s = store.snapshot("en", "en", false);
+                let s = store.snapshot("en", "en", false, false);
                 !s.sessions.is_empty()
             };
             sleep_interruptible(if active {

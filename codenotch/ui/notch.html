@@ -131,6 +131,24 @@ const listen = window.__TAURI__.event.listen;
 const AMPLE='#00FF88', WATCH='#F2FF00', CRIT='#FF3F00';
 const TRACK='#303030', AMBER='#FFBF00', RUNGREEN='#28E07B';
 const tone=f=> f>=0.8?CRIT : f>=0.5?WATCH : AMPLE;
+// Whole percents, except where rounding would read as nothing used or nothing left, as the Mac's Percent does
+function smallPct(v){
+  if(v<=0) return '0';
+  const t=Math.round(v*10)/10;
+  if(t<0.1) return '<0.1';
+  if(t>99.9) return '>99.9';
+  return t.toFixed(1);
+}
+function pctText(f){ const v=f*100; return v>0&&v<1?smallPct(v):String(Math.round(v)); }
+// Both ends, since vendors disagree on which they print; the left half comes from the rounded used half, as their dashboards do
+function usedCopy(w){
+  const v=w.used*100;
+  let used, left;
+  if((v>0&&v<1)||(v>99&&v<100)){ used=smallPct(v); left=100-v>99.9?'>99.9':smallPct(Math.max(0,100-v)); }
+  else { const u=Math.round(v); used=String(u); left=String(Math.max(0,100-u)); }
+  if(w.derived) used='~'+used;
+  return uiLang==='ru'?`Использовано ${used}% · осталось ${left}%`:`${used}% Used · ${left}% left`;
+}
 
 let usage={status:'',windows:[],fetched_at:0,note:''};
 let codexSnap={status:'absent',windows:[],fetched_at:0,note:''};
@@ -162,7 +180,6 @@ const RU_TEXT={
   'Resetting…':'Сброс…',
   'Resets at':'Сброс в',
   'Resets':'Сброс',
-  'Used':'Использовано',
   'Working':'Работа',
   'Waiting':'Ожидание',
   'Streaming (network)':'Потоковая передача (сеть)',
@@ -305,11 +322,6 @@ function svgArc(r,frac,color,width,extra=''){
     transform="rotate(-90 28 28)" ${extra}/>`;
 }
 
-function isStale(){
-  if(usage.status==='stale') return true;
-  return usage.fetched_at>0 && (Date.now()-usage.fetched_at)>5*60*1000;
-}
-
 function renderRing(){
   const ps=providers();
   // Rebuild the DOM only when the structure changes (never swap the element under the cursor)
@@ -334,7 +346,7 @@ function renderRing(){
     svg.innerHTML=inner;
     if(p.snap.status==='needsAuth'||p.snap.status==='none') pct.textContent='—';
     else if(h && h.count!=null) pct.textContent='~'+h.count;
-    else if(h) pct.textContent=(h.derived?'~':'')+Math.round(h.used*100)+'%';
+    else if(h) pct.textContent=(h.derived?'~':'')+pctText(h.used)+'%';
     else pct.textContent=p.snap.windows.length?'—':'…'; // its declared window is missing: a dash, not a wait
     glyph.classList.toggle('dim', !!(h && h.used>=1));
     wrap.classList.toggle('dim', staleOf(p.snap));
@@ -346,14 +358,21 @@ function resetCopy(ms){
   if(!ms) return '';
   const diff=ms-Date.now();
   if(diff<=0) return uiLang==='ru'?'Сброс…':'Resetting…';
-  if(diff<60*60*1000) return uiLang==='ru'
-    ? `Сброс через ${Math.max(1,Math.round(diff/60000))} мин`
-    : `Resets in ${Math.max(1,Math.round(diff/60000))} min`;
+  const min=Math.round(diff/60000); // rounded before the test, so 59m40s never reads "Resets in 60 min"
+  if(min<60) return uiLang==='ru'?`Сброс через ${Math.max(1,min)} мин`:`Resets in ${Math.max(1,min)} min`;
   const d=new Date(ms);
   const locale=uiLang==='ru'?'ru-RU':'en-US';
-  const t=d.toLocaleTimeString(locale,{hour:'numeric',minute:'2-digit'});
+  const resets=uiLang==='ru'?'Сброс:':'Resets';
+  // A weekday only names a day in the coming week: a Codex monthly reset 26 days out read as this Monday
+  if(daysApart(Date.now(),ms)>=7) return `${resets} ${d.toLocaleDateString(locale,{month:'short',day:'numeric'})}`;
+  const t=d.toLocaleTimeString(locale,{hour:'numeric',minute:'2-digit',hourCycle:stateSnap.clock_24h?'h23':'h12'});
   if(diff<24*60*60*1000) return `${uiLang==='ru'?'Сброс в':'Resets at'} ${t}`;
-  return `${uiLang==='ru'?'Сброс':'Resets'} ${d.toLocaleDateString(locale,{weekday:'short'})} ${t}`;
+  return `${resets} ${d.toLocaleDateString(locale,{weekday:'short'})} ${t}`;
+}
+// Calendar days rather than 24-hour blocks, so a clock change cannot move the answer
+function daysApart(from,to){
+  const day=ms=>{const d=new Date(ms); return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();};
+  return Math.round((day(to)-day(from))/86400000);
 }
 
 function ago(ms){
@@ -397,7 +416,7 @@ function renderCard(){
       html+=`<div class="win">
         <div class="w-row"><span class="w-label">${esc(textCopy(w.label))}</span><span class="w-reset">${resetCopy(w.resets_at)}</span></div>
         <div class="w-track"><div class="w-fill" style="width:${(Math.min(w.used,1)*100).toFixed(0)}%;background:${tone(w.used)}"></div></div>
-        <div class="w-used">${w.derived?'~':''}${Math.round(w.used*100)}% ${textCopy('Used')}</div>
+        <div class="w-used">${esc(usedCopy(w))}</div>
       </div>`;
     }
     if(group) html+=`</div>`;
@@ -448,7 +467,15 @@ function esc(s){const d=document.createElement('div');d.textContent=s||'';return
 /* Hover: stays expanded while either the pill or the card is under the cursor; collapses after a 250 ms grace period (upstream motion rule) */
 const card=document.getElementById('card'), pill=document.getElementById('pill'), tail=document.getElementById('tail');
 let hideTimer=null;
-function showCard(){clearTimeout(hideTimer);card.classList.add('show');renderCard();armWatchdog();} // show first, then render: placeCard needs offsetHeight
+function showCard(){clearTimeout(hideTimer);card.classList.add('show');renderCard();armWatchdog();refreshClock();} // show first, then render: placeCard needs offsetHeight
+// Nothing is broadcast when the Windows clock format changes, so ask again each time the card opens
+function refreshClock(){
+  invoke('get_state').then(s=>{
+    if(!s||s.clock_24h===stateSnap.clock_24h) return;
+    stateSnap.clock_24h=s.clock_24h;
+    if(card.classList.contains('show')) renderCard();
+  }).catch(()=>{});
+}
 function hideCard(){card.classList.remove('show');reportHot();}
 function scheduleHide(){clearTimeout(hideTimer);hideTimer=setTimeout(hideCard,250);}
 // ===== Diagnostics + geometry =====
