@@ -21,6 +21,7 @@ mod diag;
 mod desktop_cache;
 mod codeburn;
 mod watcher;
+mod tokens;
 
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
@@ -48,6 +49,8 @@ pub struct AppState {
     pub glyphs: Mutex<std::collections::HashMap<String, glyphs::Glyph>>,
     /// Working state of the non-Claude providers (Cursor reports it; Codex and Antigravity are inferred from recent writes)
     pub activity: Mutex<Vec<activity::Activity>>,
+    /// Token usage read from the transcripts (the companion's food and the panel's token figures)
+    pub tokens: Mutex<tokens::Snapshot>,
 }
 
 fn resolved_lang(raw: &str) -> String {
@@ -242,6 +245,11 @@ fn get_usage(state: tauri::State<AppState>) -> usage::UsageSnapshot {
 #[tauri::command]
 fn get_claude_accounts(state: tauri::State<AppState>) -> Vec<usage::ClaudeAccount> {
     state.claude_accounts.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn get_tokens(state: tauri::State<AppState>) -> tokens::Snapshot {
+    state.tokens.lock().unwrap().clone()
 }
 
 #[tauri::command]
@@ -1228,6 +1236,7 @@ fn main() {
             codeburn: Mutex::new(codeburn::load_persisted()),
             glyphs: Mutex::new(Default::default()),
             activity: Mutex::new(Vec::new()),
+            tokens: Mutex::new(Default::default()),
         })
         .invoke_handler(tauri::generate_handler![
             get_state,
@@ -1235,6 +1244,7 @@ fn main() {
             get_claude_accounts,
             get_ring_reads,
             get_codeburn,
+            get_tokens,
             open_consumo,
             close_consumo,
             consumo_height,
@@ -1314,6 +1324,7 @@ fn main() {
             cursor::start(handle.clone());
             antigravity::start(handle.clone());
             codeburn::start(handle.clone());
+            tokens::start(handle.clone());
             activity::start(handle.clone());
             // Collecting glyphs may read icon resources out of a few executables; do it off the main thread and push when done
             let gh = handle.clone();
