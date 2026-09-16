@@ -349,6 +349,84 @@ fn get_pokemon_details(state: tauri::State<AppState>, id: u32, dex_id: Option<St
 }
 
 #[tauri::command]
+fn get_companion_prefs(app: AppHandle) -> config::CompanionPrefs {
+    app.state::<AppState>().cfg.lock().unwrap().companion.clone()
+}
+
+#[tauri::command]
+fn set_companion_prefs(app: AppHandle, prefs: config::CompanionPrefs) -> config::CompanionPrefs {
+    let prefs = {
+        let st = app.state::<AppState>();
+        let mut c = st.cfg.lock().unwrap();
+        let mut p = prefs.sanitized();
+        // The pet's position is the pet window's business: a settings save never moves it
+        p.pet_x = c.companion.pet_x;
+        p.pet_y = c.companion.pet_y;
+        c.companion = p.clone();
+        config::save(&c);
+        p
+    };
+    let _ = app.emit("companion_prefs", &prefs);
+    apply_pet(&app);
+    prefs
+}
+
+/// Logical height the pet page asked for (sprite + bubble headroom + menu room)
+static PET_H: Mutex<f64> = Mutex::new(0.0);
+
+/// Shows, hides, sizes and places the floating pet from the saved preferences
+pub fn apply_pet(app: &AppHandle) {
+    let Some(w) = app.get_webview_window("pet") else { return };
+    let (on, size, saved) = {
+        let st = app.state::<AppState>();
+        let c = st.cfg.lock().unwrap();
+        (c.companion.pet, c.companion.pet_size as f64, (c.companion.pet_x, c.companion.pet_y))
+    };
+    if !on {
+        let _ = w.hide();
+        return;
+    }
+    let Ok(Some(mon)) = w.primary_monitor() else { return };
+    let ms = mon.scale_factor();
+    let wl = size.max(220.0);
+    let hl = {
+        let h = *PET_H.lock().unwrap();
+        if h > 0.0 { h } else { size + 96.0 }
+    };
+    let (pw, ph) = ((wl * ms).round() as i32, (hl * ms).round() as i32);
+    let _ = w.set_size(tauri::PhysicalSize::new(pw as u32, ph as u32));
+    let (mx, my, mw, mh) = (mon.position().x, mon.position().y, mon.size().width as i32, mon.size().height as i32);
+    // Default: bottom right, clear of the pill's column
+    let (x, y) = match saved {
+        (Some(x), Some(y)) => (x, y),
+        _ => (mx + mw - pw - (140.0 * ms) as i32, my + mh - ph - (60.0 * ms) as i32),
+    };
+    let _ = w.set_position(tauri::PhysicalPosition::new(x.clamp(mx, mx + (mw - pw).max(0)), y.clamp(my, my + (mh - ph).max(0))));
+    let _ = w.show();
+}
+
+#[tauri::command]
+fn pet_drag(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("pet") {
+        let _ = w.start_dragging();
+    }
+}
+
+#[tauri::command]
+fn pet_height(app: AppHandle, h: f64) {
+    if (60.0..=1200.0).contains(&h) {
+        *PET_H.lock().unwrap() = h.ceil();
+        apply_pet(&app);
+    }
+}
+
+/// The pet's click and menu open the panel on a tab
+#[tauri::command]
+fn pet_open_panel(app: AppHandle, tab: String) {
+    open_consumo(app, tab);
+}
+
+#[tauri::command]
 fn get_codeburn(state: tauri::State<AppState>) -> codeburn::Snapshot {
     state.codeburn.lock().unwrap().clone()
 }
@@ -1058,6 +1136,8 @@ fn reset_notch_position(app: AppHandle) {
 const CONSUMO_W: f64 = 400.0;
 /// Logical height the page last reported, so a re-dock keeps it
 static CONSUMO_H: Mutex<f64> = Mutex::new(700.0);
+/// What the panel was last opened on, so the same cell closes it again
+static OPEN_ON: Mutex<String> = Mutex::new(String::new());
 
 /// Docks the panel beside the pill: its right edge a little left of the pill's fold tab, vertically
 /// centred on the pill, kept inside the primary monitor.
@@ -1081,15 +1161,17 @@ fn dock_consumo(app: &AppHandle) {
     let _ = panel.set_position(tauri::PhysicalPosition::new(x, y));
 }
 
-/// Opens the panel on one tool ("all", "claude", "codex"); a second press on the NOVARC cell while it
-/// is open on "all" closes it.
+/// Opens the panel on one tool ("all", "claude", "codex") or one companion tab ("companion", "shop",
+/// "bag", "dex"); a second press on the cell that opened it while it is up closes it.
 #[tauri::command]
 fn open_consumo(app: AppHandle, provider: String) {
     let Some(w) = app.get_webview_window("consumo") else { return };
-    if provider == "all" && w.is_visible().unwrap_or(false) {
+    let open_on = OPEN_ON.lock().unwrap().clone();
+    if (provider == "all" || provider == "companion") && open_on == provider && w.is_visible().unwrap_or(false) {
         hide_consumo(&w);
         return;
     }
+    *OPEN_ON.lock().unwrap() = provider.clone();
     let _ = app.emit_to("consumo", "consumo_open", &provider);
     dock_consumo(&app);
     let _ = w.show();
@@ -1347,6 +1429,11 @@ fn main() {
             companion_action,
             get_sprite,
             get_pokemon_details,
+            get_companion_prefs,
+            set_companion_prefs,
+            pet_drag,
+            pet_open_panel,
+            pet_height,
             open_consumo,
             close_consumo,
             consumo_height,
@@ -1416,9 +1503,30 @@ fn main() {
                     }
                 });
             }
+            if let Some(w) = handle.get_webview_window("pet") {
+                let hide_me = w.clone();
+                let mover = handle.clone();
+                w.on_window_event(move |e| match e {
+                    tauri::WindowEvent::CloseRequested { api, .. } => {
+                        api.prevent_close();
+                        let _ = hide_me.hide();
+                    }
+                    tauri::WindowEvent::Moved(p) => {
+                        let st = mover.state::<AppState>();
+                        let mut c = st.cfg.lock().unwrap();
+                        if c.companion.pet && (c.companion.pet_x != Some(p.x) || c.companion.pet_y != Some(p.y)) {
+                            c.companion.pet_x = Some(p.x);
+                            c.companion.pet_y = Some(p.y);
+                            config::save(&c);
+                        }
+                    }
+                    _ => {}
+                });
+            }
             start_tray_updater(handle.clone());
             // Honours the saved switches: a notch hidden last time stays hidden.
             apply_visibility(&handle);
+            apply_pet(&handle);
             server::start(handle.clone(), port);
             watcher::start(handle.clone());
             usage::start(handle.clone());

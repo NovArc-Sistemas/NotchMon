@@ -143,6 +143,43 @@
   .c-scale input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:10px;height:10px;margin-top:-3.5px;border-radius:50%;background:#8a8a8a;cursor:pointer}
   .c-scale-val{font-size:10px;color:#808080;min-width:30px;text-align:right}
 
+  /* Companion cell: the sprite inside an XP ring (progress of the current form) */
+  .cell.mon .glyph img{width:44px;height:44px;image-rendering:pixelated;object-fit:contain}
+  .cell.mon .pct{font-size:12.5px}
+  .cell.mon.tired .glyph img{filter:saturate(.4)}
+  .cell.mon.sleep{opacity:.55}.cell.mon.sleep .glyph img{filter:grayscale(.6)}
+  .cell.mon .zz{position:absolute;right:-6px;top:-8px}
+  .cell.mon .spark{position:absolute;right:-4px;top:-6px}
+  @keyframes flash{0%{opacity:0}20%{opacity:.9}100%{opacity:0}}
+  .cell.mon .flash{position:absolute;inset:-4px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.7),rgba(255,255,255,0) 70%);animation:flash 1.2s ease-out 1;pointer-events:none}
+  /* Hero mode: the companion big at the top of the pill, its name under it */
+  .cell.mon.hero .ringwrap{width:68px;height:68px}
+  .cell.mon.hero .glyph img{width:56px;height:56px}
+  .cell.mon.hero .mon-name{font-size:11px;font-weight:700;color:#e8e8ea;margin-top:-2px}
+  .cell.mon.hero .pct{color:#9a9a9a;font-weight:600}
+  .cell.spend .pct-lab{font-size:10px;color:#808080;margin-bottom:-4px}
+  /* Event bubble (hatch, evolution, candy): left of the pill, beside the companion cell */
+  #bubble{position:absolute;right:112px;width:180px;background:#0a0a0a;border:1px solid #2e2e2e;border-radius:12px;padding:8px 10px;font-size:11px;color:#e8e8ea;line-height:1.4;display:none;z-index:3}
+  #bubble:after{content:"";position:absolute;right:-7px;top:50%;margin-top:-6px;border:6px solid transparent;border-left-color:#0a0a0a;border-right:0}
+  #bubble.show{display:block}
+  #bubble b{color:#fff}
+  /* Companion card */
+  .m-hero{display:flex;gap:12px;align-items:flex-start}
+  .m-pic{width:72px;height:72px;background:#151515;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .m-pic img{width:64px;height:64px;image-rendering:pixelated;object-fit:contain}
+  .m-pic.shiny{box-shadow:inset 0 0 0 1px #6b5a10}
+  .badge{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.3px;padding:2px 7px;border-radius:9px;color:#fff;vertical-align:middle;margin-left:6px}
+  .m-sub{font-size:11px;color:#9a9a9a;font-weight:600;margin-top:2px}
+  .xp{height:8px;border-radius:4px;background:#2d2d2d;overflow:hidden;margin-top:6px}.xp div{height:100%;border-radius:4px;background:#e8e8ea}
+  .m-left{font-size:11px;color:#808080;margin-top:3px}
+  .m-mood{font-size:12px;color:#c8c8c8;margin-top:8px;font-weight:600}
+  .evo{display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .evo .n{display:flex;flex-direction:column;align-items:center;gap:1px}
+  .evo .n img{width:36px;height:36px;image-rendering:pixelated;object-fit:contain}
+  .evo .n.future img,.evo .n.mystery img{filter:brightness(0) invert(.3)}
+  .evo .n i{width:5px;height:5px;border-radius:3px;background:transparent;display:block}
+  .evo .n.current i{background:#0a84ff}
+  .evo svg{width:14px;height:14px}
   #notice{
     position:absolute;left:8px;bottom:6px;right:80px;font-size:10px;color:#808080;
     background:rgba(0,0,0,.85);border-radius:8px;padding:4px 8px;display:none
@@ -156,6 +193,7 @@
   <div id="tail"></div>
   <div id="pill"></div><!-- one .cell per provider, stacked vertically (upstream: data-driven, the same layout for 1–5 cells) -->
   <div id="fold" title="Show"><svg viewBox="0 0 18 58" width="18" height="58"><path d="M16.5 0 A6 6 0 0 1 10.5 6 H7.5 A7 7 0 0 0 0.5 13 V45 A7 7 0 0 0 7.5 52 H10.5 A6 6 0 0 1 16.5 58 H18 V0 Z" fill="#000"/><path d="M16.5 0 A6 6 0 0 1 10.5 6 H7.5 A7 7 0 0 0 0.5 13 V45 A7 7 0 0 0 7.5 52 H10.5 A6 6 0 0 1 16.5 58" fill="none" stroke="#2e2e2e" stroke-width="1"/><path class="chev" d="M10 25 L6.5 29 L10 33" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div><!-- the only thing left on screen while the pill is folded away -->
+  <div id="bubble"></div>
   <div id="notice"></div>
 </div>
 <script>
@@ -187,6 +225,7 @@ function usedCopy(w){
   if((v>0&&v<1)||(v>99&&v<100)){ used=smallPct(v); left=100-v>99.9?'>99.9':smallPct(Math.max(0,100-v)); }
   else { const u=Math.round(v); used=String(u); left=String(Math.max(0,100-u)); }
   if(w.derived) used='~'+used;
+  if(uiLang==='pt') return `${used}% usado · ${left}% restante`;
   return uiLang==='ru'?`Использовано ${used}% · осталось ${left}%`:`${used}% Used · ${left}% left`;
 }
 
@@ -198,9 +237,28 @@ let claudeAccounts=[]; // Claude accounts Desktop is signed into besides the `cl
 // codeburn (API-equivalent spend): the NOVARC cell and the Consumo section of the Claude and Codex cards
 let cb={available:false,last24h:null,periods:{},days:{},updated_at:0};
 let cardPeriod='today';
+// The companion: its view from Rust, the pill/card preferences, the token snapshot and the sprites
+let comp=null, cprefs={pillMode:'cell',animation:'balanced',limitDisplay:'used',notifications:true}, tokSnap=null;
+const SPR={}, sprPending=new Set();
+function sprUrl(id,anim,shiny){
+  const k=`${id}|${anim?1:0}|${shiny?1:0}`;
+  if(SPR[k]) return SPR[k];
+  if(!sprPending.has(k)){ sprPending.add(k); invoke('get_sprite',{what:String(id),animated:!!anim,shiny:!!shiny}).then(u=>{ sprPending.delete(k); if(u){ SPR[k]=u; renderRing(); if(card.classList.contains('show')) renderCard(); } }).catch(()=>sprPending.delete(k)); }
+  return SPR[`${id}|0|${shiny?1:0}`]||'';
+}
+// PokeTokenBar's compact tokens: 12.3K, 190.6M, 1.24B
+function tokFmt(n){ n=Number(n)||0; const trim=(v,d)=>{let s=v.toFixed(d); while(s.endsWith('0')) s=s.slice(0,-1); if(s.endsWith('.')) s=s.slice(0,-1); return s;};
+  if(n<1e3) return String(n); if(n<1e6) return trim(n/1e3,1)+'K'; if(n<1e9) return trim(n/1e6,1)+'M'; return trim(n/1e9,2)+'B'; }
+const RAR={common:'#8e8e93',uncommon:'#34c759',rare:'#0a84ff',legendary:'#ff9f0a'};
+const NAT={hardy:['Hardy','Esforçada'],lonely:['Lonely','Carente'],brave:['Brave','Corajosa'],adamant:['Adamant','Teimosa'],naughty:['Naughty','Levada'],bold:['Bold','Ousada'],docile:['Docile','Dócil'],relaxed:['Relaxed','Descontraída'],impish:['Impish','Travessa'],lax:['Lax','Despreocupada'],timid:['Timid','Medrosa'],hasty:['Hasty','Apressada'],serious:['Serious','Séria'],jolly:['Jolly','Alegre'],naive:['Naive','Ingênua'],modest:['Modest','Modesta'],mild:['Mild','Meiga'],quiet:['Quiet','Discreta'],bashful:['Bashful','Tímida'],rash:['Rash','Impulsiva'],calm:['Calm','Calma'],gentle:['Gentle','Gentil'],sassy:['Sassy','Atrevida'],careful:['Careful','Cautelosa'],quirky:['Quirky','Excêntrica']};
+const PT_TEXT={
+  'Included usage':'Uso incluído','API usage':'Uso de API','On demand':'Sob demanda','Usage':'Uso','Current session':'Sessão atual','Weekly (all models)':'Semanal (todos os modelos)','Weekly (Opus)':'Semanal (Opus)','Weekly (model-scoped)':'Semanal (por modelo)','Weekly limit':'Limite semanal','Weekly Limit':'Limite semanal','5-Hour Limit':'Limite de 5 horas','5-hour Limit':'Limite de 5 horas','5h limit':'Limite de 5 h','Gemini Models':'Modelos Gemini','Claude and GPT models':'Modelos Claude e GPT','Monthly limit':'Limite mensal','Monthly Limit':'Limite mensal','Updated':'Atualizado','Resets at':'Reinicia às','Resets':'Reinicia','Working':'Trabalhando','Waiting':'Aguardando','request today':'pedido hoje','requests today':'pedidos hoje','no requests today':'nenhum pedido hoje','Waiting for first reading…':'Aguardando a primeira leitura…','Sign in to Claude Code to see usage.':'Entre no Claude Code para ver o uso.','Sign in to Cursor to see usage.':'Entre no Cursor para ver o uso.','Sign in to Codex to see usage.':'Entre no Codex para ver o uso.','Sign in to Antigravity to see usage.':'Entre no Antigravity para ver o uso.','needs your input':'precisa de você','Working in':'Trabalhando em','Notch size':'Tamanho da barra','Last 24 hours':'Últimas 24 horas','API-equivalent spend':'Gasto equivalente em API','Open Usage ›':'Abrir Uso ›','Reading codeburn…':'Lendo o codeburn…','Cost':'Custo','Calls':'Chamadas','Sessions':'Sessões','Models':'Modelos','Activities':'Atividades','See all ›':'Ver tudo ›','API-equivalent':'equivalente em API',' · all Claude accounts':' · todas as contas Claude','Today':'Hoje','7 days':'7 dias','30 days':'30 dias','Month':'Mês',
+  'Egg':'Ovo','Incubating':'Incubando','Hatching soon.':'Vai chocar logo.','About to hatch!':'Está quase chocando!','to hatch':'para chocar','Final form':'Forma final','Form':'Forma','of':'de','to graduation':'para formar','to next evolution':'para evoluir','Keeping quiet today.':'Hoje está quietinho.',"Today's work is piling up.":'O trabalho de hoje está se acumulando.','In focus mode now.':'Agora está em modo foco.','Close to the limit. A short break is fine.':'Está perto do limite. Uma pausa cai bem.','Sleeping now.':'Agora está dormindo.','It grew!':'Cresceu!','evolved!':'evoluiu!',"Today's tokens":'Tokens de hoje','all tools':'todas as ferramentas','Week':'Semana','Open companion ›':'Abrir companheiro ›','Hatched!':'Chocou!','Shiny!':'Shiny!','Graduated!':'Formou-se!','went to the Pokédex. A new egg is here.':'foi para a Pokédex. Um ovo novo chegou.','Rare Candy':'Rare Candy','in the bag':'na mochila','Huh? It is Ditto!':'Ué? É um Ditto!','Companion':'Companheiro','Lv.':'Nv.','Common':'Comum','Uncommon':'Incomum','Rare':'Raro','Legendary':'Lendário'
+};
+const TT=k=>uiLang==='pt'?(PT_TEXT[k]||k):(uiLang==='ru'?textCopy(k):k);
 // The design system's negative symbol (logo-symbol-negative.svg), inline as the brand requires, never redrawn
 const NOVARC_SVG='<svg viewBox="0 0 60 56" role="img" aria-label="NovArc"><path d="M19 6 H6 V50 H19 V44 H12 V12 H19 Z" fill="#FFFFFF"></path><path d="M31.5 6 H39.5 L28.5 50 H20.5 Z" fill="#0A6CFF"></path><path d="M41 6 H54 V50 H41 V44 H48 V12 H41 Z" fill="#FFFFFF"></path></svg>';
-const CB_PERIODS=[['today','Today'],['week','7 days'],['30days','30 days'],['month','Month']];
+const CB_PERIODS=[['today','Today'],['week','7 days'],['30days','30 days'],['month','Month']]; // labels go through TT()
 const CB_NAMES={claude:'Claude',codex:'Codex',cursor:'Cursor',gemini:'Gemini',all:'All'};
 function usd(n){ if(n==null||!isFinite(n)) return '—'; return n>=10000?'$'+(n/1000).toFixed(1)+'k':'$'+Math.round(n).toLocaleString('en-US'); }
 function cbProvider(id){ return id==='codex'?'codex':(id==='claude'||id.startsWith('claude:'))?'claude':null; }
@@ -217,28 +275,28 @@ function cbRows(list,color){
 // The Consumo block of a provider's card: codeburn's reading of the chosen period, and the way into the panel
 function consumoHtml(pid){
   const v=cb.periods[pid+':'+cardPeriod], cur=v&&v.current;
-  const both=pid==='claude'&&claudeAccounts.length?' · all Claude accounts':'';
-  let h=`<div class="cb"><div class="cb-h">Usage<em>API-equivalent${both}</em></div>
-    <div class="cb-tabs">${CB_PERIODS.map(([k,l])=>`<span data-period="${k}" class="${k===cardPeriod?'on':''}">${l}</span>`).join('')}</div>`;
-  if(!cur){ h+=`<div class="c-note">Reading codeburn…</div></div>`; return h; }
-  h+=`<div class="cb-kpis"><div class="cb-kpi"><span>Cost</span><b>${usd(cur.cost)}</b></div><div class="cb-kpi"><span>Calls</span><b>${(cur.calls||0).toLocaleString('en-US')}</b></div><div class="cb-kpi"><span>Sessions</span><b>${(cur.sessions||0).toLocaleString('en-US')}</b></div></div>`;
+  const both=pid==='claude'&&claudeAccounts.length?TT(' · all Claude accounts'):'';
+  let h=`<div class="cb"><div class="cb-h">${TT('Usage')}<em>${TT('API-equivalent')}${both}</em></div>
+    <div class="cb-tabs">${CB_PERIODS.map(([k,l])=>`<span data-period="${k}" class="${k===cardPeriod?'on':''}">${TT(l)}</span>`).join('')}</div>`;
+  if(!cur){ h+=`<div class="c-note">${TT('Reading codeburn…')}</div></div>`; return h; }
+  h+=`<div class="cb-kpis"><div class="cb-kpi"><span>${TT('Cost')}</span><b>${usd(cur.cost)}</b></div><div class="cb-kpi"><span>${TT('Calls')}</span><b>${(cur.calls||0).toLocaleString('en-US')}</b></div><div class="cb-kpi"><span>${TT('Sessions')}</span><b>${(cur.sessions||0).toLocaleString('en-US')}</b></div></div>`;
   h+=cbBars((cb.periods[pid+':today']||v).daily);
-  if(cur.topModels&&cur.topModels.length) h+=`<div class="cb-sub">Models</div>`+cbRows(cur.topModels,'#FF7A1A');
-  if(cur.topActivities&&cur.topActivities.length) h+=`<div class="cb-sub">Activities</div>`+cbRows(cur.topActivities,'#FFB347');
-  return h+`<span class="cb-more" data-open="${pid}">See all ›</span></div>`;
+  if(cur.topModels&&cur.topModels.length) h+=`<div class="cb-sub">${TT('Models')}</div>`+cbRows(cur.topModels,'#FF7A1A');
+  if(cur.topActivities&&cur.topActivities.length) h+=`<div class="cb-sub">${TT('Activities')}</div>`+cbRows(cur.topActivities,'#FFB347');
+  return h+`<span class="cb-more" data-open="${pid}">${TT('See all ›')}</span></div>`;
 }
 // The NOVARC cell's card: the last 24 rolling hours, split per tool
 function renderBrandCard(c){
   const l=cb.last24h;
-  let html=`<div class="c-head"><span style="width:18px;height:17px;display:inline-block">${NOVARC_SVG}</span><span class="c-title">Last 24 hours</span></div>
-    <div class="c-sub">API-equivalent spend${l&&l.at?' · '+textCopy('Updated')+' '+ago(l.at):''}</div>`;
-  if(!l){ html+=`<div class="c-note">Reading codeburn…</div>`; }
+  let html=`<div class="c-head"><span style="width:18px;height:17px;display:inline-block">${NOVARC_SVG}</span><span class="c-title">${TT('Last 24 hours')}</span></div>
+    <div class="c-sub">${TT('API-equivalent spend')}${l&&l.at?' · '+textCopy('Updated')+' '+ago(l.at):''}</div>`;
+  if(!l){ html+=`<div class="c-note">${TT('Reading codeburn…')}</div>`; }
   else{
     html+=`<div class="cb-big">${usd(l.total)}</div>`;
     const rows=Object.entries(l.by_provider||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({name:CB_NAMES[k]||k,cost:v}));
     html+=cbRows(rows,'#0A6CFF');
   }
-  html+=`<span class="cb-more" data-open="all">Open Usage ›</span>`;
+  html+=`<span class="cb-more" data-open="all">${TT('Open Usage ›')}</span>`;
   html+=`<div class="c-scale"><input id="scale-range" type="range" min="40" max="100" step="5" value="${scalePct}" aria-label="${textCopy('Notch size')}" title="${textCopy('Notch size')}"><span class="c-scale-val" id="scale-val">${scalePct}%</span></div>`;
   c.innerHTML=html; wireScaleRow(); placeCard();
 }
@@ -287,6 +345,7 @@ const RU_TEXT={
 };
 function textCopy(value){
   if(!value) return '';
+  if(uiLang==='pt') return PT_TEXT[value]||value;
   if(uiLang!=='ru') return value;
   if(RU_TEXT[value]) return RU_TEXT[value];
   return String(value)
@@ -328,7 +387,7 @@ function textCopy(value){
     .replace(/Cursor session was rejected — sign in again in the editor/g,'Сеанс Cursor отклонён — снова войдите в редакторе');
 }
 function setUiLanguage(lang){
-  const next=lang==='ru'?'ru':'en';
+  const next=lang==='ru'?'ru':lang==='pt'?'pt':'en';
   if(uiLang===next) return;
   uiLang=next;
   renderRing();
@@ -429,15 +488,18 @@ function svgArc(r,frac,color,width,extra=''){
 function renderRing(){
   const ps=providers();
   // Rebuild the DOM only when the structure changes (never swap the element under the cursor)
-  const want=(cb.available?'novarc,':'')+ps.map(p=>p.id+':'+(glyphOf(p)?glyphOf(p).kind:'-')).join(',');
+  const monMode=comp&&cprefs.pillMode!=='none'?cprefs.pillMode:'none';
+  const want=(cb.available?'novarc,':'')+'mon:'+monMode+','+ps.map(p=>p.id+':'+(glyphOf(p)?glyphOf(p).kind:'-')).join(',');
   if(pill.dataset.cells!==want){
-    const brand=cb.available?`<div class="cell brand" data-p="novarc" title="Last 24 hours"><div class="ringwrap"><div class="glyph">${NOVARC_SVG}</div></div><div class="pct">—</div></div>`:'';
-    pill.innerHTML=brand+ps.map(p=>`<div class="cell" data-p="${p.id}">
+    const brand=cb.available?(monMode==='hero'?`<div class="cell brand spend" data-p="novarc" title="Last 24 hours"><div class="pct-lab">24 h</div><div class="pct">—</div></div>`:`<div class="cell brand" data-p="novarc" title="Last 24 hours"><div class="ringwrap"><div class="glyph">${NOVARC_SVG}</div></div><div class="pct">—</div></div>`):'';
+    const mon=monMode==='none'?'':`<div class="cell mon ${monMode==='hero'?'hero':''}" data-p="mon"><div class="ringwrap"><svg class="ring" viewBox="0 0 56 56"></svg><div class="glyph"><img alt=""></div></div>${monMode==='hero'?'<div class="mon-name"></div>':''}<div class="pct one">—</div></div>`;
+    pill.innerHTML=(monMode==='hero'?mon+brand:brand+mon)+ps.map(p=>`<div class="cell" data-p="${p.id}">
       <div class="ringwrap"><svg class="ring" viewBox="0 0 56 56"></svg><div class="glyph ${(!glyphOf(p)&&p.glyph.length>1)?'small':''}">${glyphHtml(p)}</div></div>
       <div class="pct">—</div></div>`).join('')+FOLD_TAB;
     pill.dataset.cells=want;
   }
   const brandPct=pill.querySelector('.brand .pct'); if(brandPct) brandPct.textContent=cb.last24h?usd(cb.last24h.total):'—';
+  renderMonCell();
   for(const p of ps){
     const cell=pill.querySelector(`.cell[data-p="${p.id}"]`); if(!cell) continue;
     const svg=cell.querySelector('svg.ring'), pct=cell.querySelector('.pct'), glyph=cell.querySelector('.glyph'), wrap=cell.querySelector('.ringwrap');
@@ -475,16 +537,16 @@ function renderRing(){
 function resetCopy(ms){
   if(!ms) return '';
   const diff=ms-Date.now();
-  if(diff<=0) return uiLang==='ru'?'Сброс…':'Resetting…';
+  if(diff<=0) return uiLang==='ru'?'Сброс…':uiLang==='pt'?'Reiniciando…':'Resetting…';
   const min=Math.round(diff/60000); // rounded before the test, so 59m40s never reads "Resets in 60 min"
-  if(min<60) return uiLang==='ru'?`Сброс через ${Math.max(1,min)} мин`:`Resets in ${Math.max(1,min)} min`;
+  if(min<60) return uiLang==='ru'?`Сброс через ${Math.max(1,min)} мин`:uiLang==='pt'?`Reinicia em ${Math.max(1,min)} min`:`Resets in ${Math.max(1,min)} min`;
   const d=new Date(ms);
-  const locale=uiLang==='ru'?'ru-RU':'en-US';
-  const resets=uiLang==='ru'?'Сброс:':'Resets';
+  const locale=uiLang==='ru'?'ru-RU':uiLang==='pt'?'pt-BR':'en-US';
+  const resets=uiLang==='ru'?'Сброс:':uiLang==='pt'?'Reinicia':'Resets';
   // A weekday only names a day in the coming week: a Codex monthly reset 26 days out read as this Monday
   if(daysApart(Date.now(),ms)>=7) return `${resets} ${d.toLocaleDateString(locale,{month:'short',day:'numeric'})}`;
   const t=d.toLocaleTimeString(locale,{hour:'numeric',minute:'2-digit',hourCycle:stateSnap.clock_24h?'h23':'h12'});
-  if(diff<24*60*60*1000) return `${uiLang==='ru'?'Сброс в':'Resets at'} ${t}`;
+  if(diff<24*60*60*1000) return `${uiLang==='ru'?'Сброс в':uiLang==='pt'?'Reinicia às':'Resets at'} ${t}`;
   return `${resets} ${d.toLocaleDateString(locale,{weekday:'short'})} ${t}`;
 }
 // Calendar days rather than 24-hour blocks, so a clock change cannot move the answer
@@ -496,22 +558,24 @@ function daysApart(from,to){
 function ago(ms){
   const m=Math.round((Date.now()-ms)/60000);
   if(uiLang==='ru') return m<60?`${m} мин назад`:`${Math.round(m/60)} ч назад`;
+  if(uiLang==='pt') return m<60?`${m} min atrás`:`${Math.round(m/60)} h atrás`;
   return m<60?`${m}m ago`:`${Math.round(m/60)}h ago`;
 }
 
 const STATE_DOT={running:RUNGREEN,attention:AMBER,done:'#57c7ff'};
 // The card is clipped, not scrolled, so rows past this would push its title off the top; the rest are counted, as on the Mac
 const SESSION_ROWS=5;
-function moreRow(n){ return n>0?`<div class="s-more">${uiLang==='ru'?`и ещё ${n}`:`and ${n} more`}</div>`:''; }
+function moreRow(n){ return n>0?`<div class="s-more">${uiLang==='ru'?`и ещё ${n}`:uiLang==='pt'?`e mais ${n}`:`and ${n} more`}</div>`:''; }
 
 let hoverId='claude';
 function renderCard(){
   const c=document.getElementById('card');
   if(hoverId==='novarc'){ renderBrandCard(c); return; }
+  if(hoverId==='mon'){ renderMonCard(c); return; }
   const p=providers().find(x=>x.id===hoverId)||providers()[0];
   const snap=p.snap;
   const headIcon=glyphHtml(p,true);
-  let html=`<div class="c-head">${headIcon}<span class="c-title">${uiLang==='ru'?'Использование '+p.name:p.name+' Usage'}</span></div>`;
+  let html=`<div class="c-head">${headIcon}<span class="c-title">${uiLang==='ru'?'Использование '+p.name:uiLang==='pt'?'Uso do '+p.name:p.name+' Usage'}</span></div>`;
   if(staleOf(snap)&&snap.fetched_at) html+=`<div class="c-sub">${textCopy('Updated')} ${ago(snap.fetched_at)}</div>`;
   if(snap.status==='needsAuth'){
     const who={claude:'Sign in to Claude Code to see usage.',cursor:'Sign in to Cursor to see usage.',codex:'Sign in to Codex to see usage.',gemini:'Sign in to Antigravity to see usage.'}[p.id]||'';
@@ -583,6 +647,93 @@ function placeCard(){
 }
 
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+
+/* ===== The companion: cell, card and event bubble ===== */
+function monShiny(){ return !!(comp&&comp.active&&comp.active.isShiny&&!(comp.active.dittoDisguise&&!comp.active.dittoRevealed)); }
+function monAnimated(){ if(cprefs.animation==='saver') return false; if(cprefs.animation==='smooth') return true; return comp&&['working','focus','levelUp'].includes(comp.display); }
+function monSpriteId(){ if(!comp) return 0; if(cprefs.pillMode==='hero'||true){ if(comp.representative&&!comp.isEgg) return comp.representative; if(comp.representative&&comp.isEgg) return comp.representative; } return comp.isEgg?0:comp.currentId; }
+function todayTokens(){ if(!tokSnap||!tokSnap.providers) return 0; return Object.values(tokSnap.providers).reduce((a,p)=>a+p.today.in+p.today.out+p.today.cw+p.today.cr,0); }
+function natName(n){ return NAT[n]?NAT[n][uiLang==='pt'?1:0]:(n||''); }
+function rarName(r){ return TT({common:'Common',uncommon:'Uncommon',rare:'Rare',legendary:'Legendary'}[r]||r); }
+function monMood(){
+  if(!comp) return '';
+  const ev=comp.lastEvent, live=comp.eventUntil>Date.now();
+  if(comp.isEgg) return comp.eggUsage>0?TT('Hatching soon.'):TT('Incubating');
+  if(live&&ev){ if(ev.kind==='evolved') return `${esc(ev.name)} ${TT('evolved!')}`; if(ev.kind==='hatched') return TT('It grew!'); if(ev.kind==='dittoRevealed') return TT('Huh? It is Ditto!'); }
+  return TT({idle:'Keeping quiet today.',working:"Today's work is piling up.",focus:'In focus mode now.',tired:'Close to the limit. A short break is fine.',sleep:'Sleeping now.',levelUp:'It grew!'}[comp.display]||'Keeping quiet today.');
+}
+function renderMonCell(){
+  const cell=pill.querySelector('.cell.mon'); if(!cell||!comp) return;
+  const svg=cell.querySelector('svg.ring'), img=cell.querySelector('.glyph img'), pct=cell.querySelector('.pct'), wrap=cell.querySelector('.ringwrap');
+  const shiny=monShiny(), rep=comp.representative&&comp.representativeShiny;
+  const id=comp.representative||(comp.isEgg?0:comp.currentId);
+  const url=sprUrl(id,id!==0&&monAnimated(),id===comp.representative?!!comp.representativeShiny:shiny);
+  if(url&&img.src!==url) img.src=url;
+  const frac=comp.isEgg?Math.min(1,comp.eggUsage/Math.max(1,comp.eggThreshold)):comp.progress;
+  const st=comp.display;
+  const col=st==='tired'||st==='sleep'?'#8e8e93':st==='levelUp'?'#fff':shiny?'#ffd60a':'#0a84ff';
+  let inner=`<circle cx="28" cy="28" r="22" fill="#141414"/><circle cx="28" cy="28" r="25" fill="none" stroke="${TRACK}" stroke-width="5"/>`+svgArc(25,frac,col,5,st==='focus'?'style="filter:drop-shadow(0 0 3px '+col+')"':'');
+  if(st==='working') inner+=`<g class="arc-spin">${svgArc(19,0.28,RUNGREEN,2.5)}</g>`;
+  else if(st==='focus') inner+=`<g class="arc-spin">${svgArc(19,0.5,'#ffd60a',2.5)}</g>`;
+  svg.innerHTML=inner;
+  cell.classList.toggle('tired',st==='tired'); cell.classList.toggle('sleep',st==='sleep');
+  let extra=wrap.querySelector('.zz,.spark'); if(extra) extra.remove();
+  if(st==='sleep') wrap.insertAdjacentHTML('beforeend','<svg class="zz" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#9aa0aa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h6l-6 8h6"/><path d="M14 4h5l-5 6h5"/></svg>');
+  else if(shiny) wrap.insertAdjacentHTML('beforeend','<svg class="spark" viewBox="0 0 24 24" width="16" height="16" fill="#ffd60a"><path d="M12 2l2.2 6.3L20 10l-5.8 1.7L12 18l-2.2-6.3L4 10l5.8-1.7z"/></svg>');
+  const name=cell.querySelector('.mon-name'); if(name) name.textContent=comp.isEgg?TT('Egg'):comp.name;
+  pct.style.color='';
+  if(comp.isEgg) pct.textContent=`${tokFmt(comp.eggUsage)} / ${tokFmt(comp.eggThreshold)}`;
+  else if(st==='focus'){ pct.textContent='+'+tokFmt(Math.round(tokSnap?tokSnap.burn_per_min:0))+'/min'; pct.style.color='#ffd60a'; }
+  else if(st==='tired'){ const five=fiveHourOf(usage.windows,'claude'); pct.textContent=five?`5h · ${Math.round(five.used*100)}%`:tokFmt(todayTokens()); pct.style.color=AMBER; }
+  else if(st==='levelUp'){ const ev=comp.lastEvent; pct.textContent=ev&&ev.name?ev.name:comp.name; pct.style.color='#fff'; if(!wrap.querySelector('.flash')&&comp.eventUntil>Date.now()){ wrap.insertAdjacentHTML('beforeend','<div class="flash"></div>'); setTimeout(()=>{const f=wrap.querySelector('.flash'); if(f) f.remove();},1300);} }
+  else { pct.textContent=tokFmt(todayTokens()); if(shiny) pct.style.color='#ffd60a'; }
+}
+function renderMonCard(c){
+  if(!comp){ c.innerHTML=`<div class="c-note">${TT('Waiting for first reading…')}</div>`; placeCard(); return; }
+  let html=`<div class="c-head"><span class="c-title">${TT('Companion')}</span></div>`;
+  if(comp.isEgg){
+    const p=Math.min(1,comp.eggUsage/Math.max(1,comp.eggThreshold));
+    html+=`<div class="m-hero"><div class="m-pic"><img src="${sprUrl(0,false,false)}" alt=""></div><div style="flex:1;min-width:0"><div class="c-title">${TT('Egg')}${comp.eggTier?`<span class="badge" style="background:${RAR[comp.eggTier]}">${rarName(comp.eggTier).toUpperCase()} +</span>`:''}</div><div class="m-sub">${p>=.9?TT('About to hatch!'):TT('Incubating')}</div><div class="xp"><div style="width:${(p*100).toFixed(1)}%"></div></div><div class="m-left">${tokFmt(Math.max(0,comp.eggThreshold-comp.eggUsage))} ${TT('to hatch')}</div></div></div>`;
+  }else{
+    const a=comp.active, sh=monShiny();
+    const stage=comp.isFinal?TT('Final form'):`${TT('Form')} ${a.stage+1} ${TT('of')} ${a.totalForms}`;
+    html+=`<div class="m-hero"><div class="m-pic${sh?' shiny':''}"><img src="${sprUrl(comp.currentId,monAnimated(),sh)}" alt=""></div><div style="flex:1;min-width:0">
+      <div class="c-title">${esc(comp.name)}<span class="badge" style="background:${RAR[a.rarity]}">${rarName(a.rarity).toUpperCase()}</span>${sh?'<span class="badge" style="background:#6b5a10">✨</span>':''}</div>
+      <div class="m-sub">${stage} · ${esc(natName(a.nature))} · ${TT('Lv.')} ${a.profile.level}</div>
+      <div class="xp"><div style="width:${(comp.progress*100).toFixed(1)}%"></div></div>
+      <div class="m-left">${tokFmt(comp.tokensToNext)} ${comp.isFinal?TT('to graduation'):TT('to next evolution')}</div></div></div>`;
+    html+=`<div class="m-mood">${monMood()}</div><div class="evo">`;
+    comp.line.forEach(([id,st],i)=>{ html+=`<div class="n ${st}"><img src="${sprUrl(id,false,sh)}" alt=""><i></i></div>${i<comp.line.length-1?'<svg viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>':''}`; });
+    html+=`</div>`;
+  }
+  const P=tokSnap&&tokSnap.providers||{}, sum=k=>Object.values(P).reduce((a,p)=>a+p[k].in+p[k].out+p[k].cw+p[k].cr,0);
+  const cost=cb.available&&cb.periods['all:today']&&cb.periods['all:today'].current?'$'+cb.periods['all:today'].current.cost.toFixed(2):'';
+  html+=`<div class="cb"><div class="cb-h">${TT("Today's tokens")}<em>${TT('all tools')}</em></div>
+    <div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="cb-big" style="margin:0">${tokFmt(sum('today'))}</span><span style="font-size:11px;color:#808080">${sum('today').toLocaleString(uiLang==='pt'?'pt-BR':'en-US')}</span><span style="margin-left:auto;font-size:12px;color:#9a9a9a">${cost}</span></div>
+    <div style="display:flex;font-size:11px;color:#9a9a9a;margin-top:6px;gap:14px"><span>${TT('Week')} <b style="color:#e8e8ea">${tokFmt(sum('week'))}</b></span><span>${TT('Month')} <b style="color:#e8e8ea">${tokFmt(sum('month'))}</b></span></div>`;
+  const t=Object.values(P).reduce((a,p)=>({in:a.in+p.today.in,out:a.out+p.today.out,cw:a.cw+p.today.cw,cr:a.cr+p.today.cr}),{in:0,out:0,cw:0,cr:0});
+  html+=`<div style="display:flex;font-size:10.5px;color:#9a9a9a;margin-top:6px;gap:10px;flex-wrap:wrap"><span>in ${tokFmt(t.in)}</span><span>out ${tokFmt(t.out)}</span><span>cache w ${tokFmt(t.cw)}</span><span>cache r ${tokFmt(t.cr)}</span></div>`;
+  html+=`<span class="cb-more" data-open="companion">${TT('Open companion ›')}</span></div>`;
+  html+=`<div class="c-scale"><input id="scale-range" type="range" min="40" max="100" step="5" value="${scalePct}" aria-label="${textCopy('Notch size')}" title="${textCopy('Notch size')}"><span class="c-scale-val" id="scale-val">${scalePct}%</span></div>`;
+  c.innerHTML=html; wireScaleRow(); placeCard();
+}
+// Hatch, evolution, graduation, candy: a bubble beside the companion cell for six seconds
+let bubbleT=null;
+function monEvent(ev){
+  if(!cprefs.notifications) return;
+  const b=document.getElementById('bubble'); let h='';
+  if(ev.kind==='hatched') h=`<b>${ev.shiny?'✨ '+TT('Shiny!'):'🥚 '+TT('Hatched!')}</b><br>${esc(ev.name)}`;
+  else if(ev.kind==='evolved') h=`<b>✨ ${esc(ev.name)} ${TT('evolved!')}</b>`;
+  else if(ev.kind==='graduated') h=`<b>🎓 ${TT('Graduated!')}</b><br>${esc(ev.name)} ${TT('went to the Pokédex. A new egg is here.')}`;
+  else if(ev.kind==='candy') h=`<b>🍬 +${ev.count} ${TT('Rare Candy')}</b><br>${esc(ev.window)} · ${TT('in the bag')}`;
+  else if(ev.kind==='dittoRevealed') h=`<b>🎭 ${TT('Huh? It is Ditto!')}</b>`;
+  if(!h) return;
+  b.innerHTML=h; b.classList.add('show');
+  const cell=pill.querySelector('.cell.mon'); const r=cell?cell.getBoundingClientRect():pill.getBoundingClientRect();
+  b.style.top=Math.max(8,Math.round(r.top+r.height/2-b.offsetHeight/2))+'px';
+  clearTimeout(bubbleT); bubbleT=setTimeout(()=>b.classList.remove('show'),6000);
+  reportHot();
+}
 
 /* Hover: stays expanded while either the pill or the card is under the cursor; collapses after a 250 ms grace period (upstream motion rule) */
 const card=document.getElementById('card'), pill=document.getElementById('pill'), tail=document.getElementById('tail');
@@ -739,6 +890,7 @@ document.addEventListener('mouseup',e=>{
   if(e.button!==0)return;
   if(press&&!dragging){
     if(press.id==='novarc') invoke('open_consumo',{provider:'all'}).catch(e=>notice('open_consumo failed: '+e));
+    else if(press.id==='mon') invoke('open_consumo',{provider:'companion'}).catch(e=>notice('open_consumo failed: '+e));
     else invoke('open_provider_page',{provider:press.id}).catch(()=>{});
   }
   press=null;
@@ -805,6 +957,13 @@ card.addEventListener('click',e=>{
 invoke('get_claude_accounts').then(a=>{if(Array.isArray(a)){claudeAccounts=a;renderRing();}}).catch(()=>{});
 invoke('get_state').then(s=>{stateSnap=s||stateSnap;setUiLanguage(stateSnap.lang_resolved);renderRing();}).catch(()=>{});
 setInterval(renderRing,30_000); // stale state and reset copy move with time
+listen('companion',e=>{ if(e.payload){ comp=e.payload; renderRing(); if(card.classList.contains('show')&&hoverId==='mon'){renderCard();armWatchdog();} } }).catch(()=>{});
+listen('companion_event',e=>{ if(e.payload) monEvent(e.payload); }).catch(()=>{});
+listen('companion_prefs',e=>{ if(e.payload){ cprefs=e.payload; renderRing(); } }).catch(()=>{});
+listen('tokens',e=>{ if(e.payload){ tokSnap=e.payload; renderRing(); if(card.classList.contains('show')&&hoverId==='mon') renderCard(); } }).catch(()=>{});
+invoke('get_companion_prefs').then(p=>{ if(p){ cprefs=p; renderRing(); } }).catch(()=>{});
+invoke('get_companion').then(v=>{ if(v){ comp=v; renderRing(); } }).catch(()=>{});
+invoke('get_tokens').then(v=>{ if(v){ tokSnap=v; renderRing(); } }).catch(()=>{});
 </script>
 </body>
 </html>

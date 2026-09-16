@@ -1,18 +1,24 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>Codenotch Usage</title>
+<html lang="en"><head><meta charset="utf-8"><title>NotchMon</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;background:transparent;overflow:hidden;user-select:none}
   body{font-family:"Segoe UI",system-ui,sans-serif;color:#e8e8ea;font-size:12px}
   /* The window is exactly as tall as this panel (the page reports its height), so nothing ever scrolls */
-  .panel{width:100%;background:#0b0b0b;border:1px solid #2a2a2a;border-radius:16px;padding:14px 16px 8px;position:relative}
+  .panel{width:100%;background:#0b0b0b;border:1px solid #2a2a2a;border-radius:16px;padding:14px 16px 10px;position:relative}
   .hd{display:flex;align-items:center;gap:8px}.hd b{font-size:15px;color:#fff;margin-right:auto}
   .hd svg{width:20px;height:19px;display:block}
   .muted{color:#8a8a8a;font-size:10.5px}
   .x{color:#8a8a8a;font-size:18px;line-height:1;cursor:pointer;padding:0 2px}.x:hover{color:#fff}
+  /* The five tabs: Uso is the codeburn panel as it was; the other four are the companion */
+  .tabs{display:flex;gap:3px;background:#151515;border-radius:10px;padding:3px;margin-top:10px}
+  .tabs span{flex:1;min-width:0;text-align:center;padding:6px 1px;border-radius:8px;color:#9a9a9a;font-size:11px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tabs span.on{background:#2a2a2a;color:#fff;font-weight:700}
+  section[hidden]{display:none}
   .seg{display:flex;gap:3px;background:#151515;border-radius:8px;padding:2px;margin-top:8px}
   .seg span{flex:1;text-align:center;padding:4px 0;border-radius:6px;color:#9a9a9a;font-size:11px;cursor:pointer}
   .seg span.on{background:#2a2a2a;color:#fff;font-weight:600}
+  .seg span.blue.on{background:#0a84ff}
   .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
   .kpi{background:#151515;border-radius:8px;padding:6px 8px}.kpi b{display:block;font-size:15px;color:#fff;font-variant-numeric:tabular-nums}.kpi span{color:#8a8a8a;font-size:10px}
   .split{display:flex;height:6px;border-radius:3px;overflow:hidden;margin:10px 0 4px;background:#1c1c1c}
@@ -53,99 +59,253 @@
   #tip .g div{background:#151515;border-radius:8px;padding:5px 7px}#tip .g b{display:block;color:#fff;font-size:13px}#tip .g span{color:#8a8a8a;font-size:9.5px}
   #tip h5{margin:8px 0 3px;font-size:10.5px;color:#cfcfcf}
   #tip .li{font-size:11px;margin:2px 0}
+  /* ---- companion surfaces (PokeTokenBar's tabs on codenotch's tokens) ---- */
+  .spr{image-rendering:pixelated;display:block}
+  .box{background:#151515;border-radius:12px;padding:12px 14px}
+  .hero{display:flex;gap:14px;align-items:flex-start;margin-top:14px}
+  .hero .pic{width:96px;height:96px;background:#151515;border-radius:14px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;position:relative}
+  .hero .pic .spr{width:84px;height:84px;object-fit:contain}
+  .hero .pic.shiny{box-shadow:inset 0 0 0 1px #6b5a10}
+  .h-name{font-size:17px;font-weight:700;color:#fff;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .badge{display:inline-block;font-size:9px;font-weight:800;letter-spacing:.3px;padding:2px 7px;border-radius:9px;color:#fff;vertical-align:middle}
+  .h-sub{font-size:12px;color:#9a9a9a;font-weight:600;margin-top:3px}
+  .xp{height:8px;border-radius:4px;background:#2d2d2d;overflow:hidden;margin-top:8px}.xp div{height:100%;border-radius:4px;background:#e8e8ea;transition:width .3s}
+  .h-left{font-size:11.5px;color:#808080;margin-top:4px}
+  .h-mood{font-size:12.5px;color:#e8e8ea;font-weight:600;margin-top:4px}
+  .evo{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .evo .n{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:10.5px;color:#c8c8c8;min-width:44px}
+  .evo .n .spr{width:40px;height:40px;object-fit:contain}
+  .evo .n.future .spr{filter:brightness(0) invert(.3)}
+  .evo .n.mystery .spr{filter:brightness(0) invert(.18)}
+  .evo .n i{width:5px;height:5px;border-radius:3px;background:transparent;display:block;margin-top:2px}
+  .evo .n.current i{background:#0a84ff}
+  .evo svg{width:14px;height:14px}
+  .hair{border-top:1px solid #1e1e1e;margin:12px 0}
+  .big{font-size:30px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums;line-height:1;color:#fff}
+  .row{display:flex;align-items:center;gap:10px}
+  .sech{font-size:11px;font-weight:700;color:#8a8a8a;letter-spacing:.4px;text-transform:uppercase;margin:12px 0 6px}
+  .ptabs{display:flex;gap:2px;margin-top:10px}.ptabs span{flex:1;text-align:center;padding:5px 0;color:#9a9a9a;font-size:12px;cursor:pointer;border-radius:6px}.ptabs span.on{color:#0a84ff;font-weight:700}
+  .w-row{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;gap:8px;margin-top:8px}
+  .w-label{font-weight:600;color:#e8e8ea}.w-reset{color:#808080;font-size:11px;margin-left:auto}
+  .w-track{height:5px;border-radius:3px;background:#2d2d2d;margin:5px 0 2px;overflow:hidden}.w-fill{height:100%;border-radius:3px}
+  .item{background:#151515;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .item .top{display:flex;gap:12px;align-items:flex-start}
+  .item .ico{width:40px;height:40px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .item .ico .spr{width:32px;height:32px;object-fit:contain}
+  .item .ico .spr.egg{width:44px;height:44px}
+  .item b{font-size:14px;color:#fff}
+  .item .desc{font-size:12px;color:#9a9a9a;line-height:1.4;margin-top:2px}
+  .item .foot{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .item .price{font-size:12px;color:#808080}
+  .btn{background:#2a2a2a;border:1px solid #3a3a3a;border-radius:9px;padding:5px 14px;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer;font-family:inherit}
+  .btn:hover{border-color:#5a5a5a}
+  .btn.blue{background:#0a84ff;border-color:#0a84ff}
+  .btn.ghost{background:transparent}
+  .btn[disabled]{opacity:.4;cursor:default}
+  .own{font-size:11px;color:#9a9a9a;font-weight:600}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:12px;background:#151515;font-size:11px;color:#9a9a9a;font-weight:600;cursor:pointer}
+  .chip i{width:6px;height:6px;border-radius:3px;display:block}
+  .chip.off{opacity:.45}
+  .dexgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+  .dex{background:#151515;border-radius:10px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;border:1.5px solid transparent;cursor:pointer;position:relative}
+  .dex small{color:#8a8a8a;font-size:10px}
+  .dex .spr{width:48px;height:48px;object-fit:contain}
+  .dex:hover{border-color:#3a3a3a}
+  .dex.rep{border-color:#0a84ff}
+  .dex .star{position:absolute;right:5px;top:4px;font-size:10px;color:#ffd60a}
+  .pager{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#9a9a9a;margin-top:10px}
+  .pager span{cursor:pointer;padding:0 6px}
+  .log{background:#151515;border-radius:12px;padding:12px 14px;margin-top:10px}
+  .log .top{display:flex;gap:8px;align-items:center}
+  .log .chain{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap}
+  .log .chain .n{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:#c8c8c8}
+  .log .chain .n .spr{width:52px;height:52px;object-fit:contain}
+  .log .when{font-size:11.5px;color:#808080;margin-top:6px}
+  .log .chain svg{width:16px;height:16px;flex:0 0 auto}
+  .stat{display:grid;grid-template-columns:64px 1fr 34px 42px;align-items:center;gap:10px;font-size:12px;margin:6px 0}
+  .stat .t{height:5px;border-radius:3px;background:#2d2d2d;overflow:hidden}.stat .t div{height:100%;background:#0a84ff;border-radius:3px}
+  .back{color:#0a84ff;font-size:12.5px;cursor:pointer}
+  .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:13px}.kv span{display:block;font-size:11px;color:#9a9a9a}.kv b{color:#fff}
+  #toast{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:#1c1c1c;border:1px solid #3a3a3a;border-radius:9px;padding:6px 12px;font-size:11.5px;color:#e8e8ea;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+  #toast.show{opacity:1}
+  .confirm{background:#1c1c1c;border-radius:9px;padding:8px 10px;font-size:11.5px;color:#e8e8ea;line-height:1.4}
+  .confirm .row{margin-top:8px;justify-content:flex-end}
 </style></head><body>
 <div class="panel" id="panel">
   <div class="hd">
     <svg viewBox="0 0 60 56" role="img" aria-label="NovArc"><path d="M19 6 H6 V50 H19 V44 H12 V12 H19 Z" fill="#FFFFFF"></path><path d="M31.5 6 H39.5 L28.5 50 H20.5 Z" fill="#0A6CFF"></path><path d="M41 6 H54 V50 H41 V44 H48 V12 H41 Z" fill="#FFFFFF"></path></svg>
-    <b>Usage</b><span class="muted" id="age"></span><span class="x" id="close" title="Close (Esc)">×</span>
+    <b id="title">NotchMon</b><span class="muted" id="age"></span><span class="x" id="close" title="Close (Esc)">×</span>
   </div>
-  <div class="seg" id="prov"><span data-v="all">All</span><span data-v="claude">Claude</span><span data-v="codex">Codex</span></div>
-  <div class="seg" id="per"><span data-v="today">Today</span><span data-v="week">7 days</span><span data-v="30days">30 days</span><span data-v="month">Month</span></div>
-  <div id="summary"></div>
-  <div class="blk">
-    <div class="blk-h">Activity <em id="heat-sum"></em></div>
-    <div class="metric" id="metric"><span data-m="s" class="on">Sessions</span><span data-m="tok">Tokens</span><span data-m="c">Cost</span><span data-m="k">Calls</span></div>
-    <div class="months" id="months"></div>
-    <div class="heat" id="heat"></div>
-    <div class="hl"><span id="peak"></span><span class="scale">less<i style="background:#1c1c1c"></i><i style="background:#4a2308"></i><i style="background:#8a3c0a"></i><i style="background:#d2600f"></i><i style="background:#ff8a2a"></i>more</span></div>
-  </div>
-  <div id="sections"></div>
+  <div class="tabs" id="tabs"><span data-t="uso">Uso</span><span data-t="companion">Companheiro</span><span data-t="shop">Loja</span><span data-t="bag">Mochila</span><span data-t="dex">Pokédex</span></div>
+
+  <section id="t-uso">
+    <div class="seg" id="prov"><span data-v="all">All</span><span data-v="claude">Claude</span><span data-v="codex">Codex</span></div>
+    <div class="seg" id="per"><span data-v="today">Today</span><span data-v="week">7 days</span><span data-v="30days">30 days</span><span data-v="month">Month</span></div>
+    <div id="summary"></div>
+    <div class="blk">
+      <div class="blk-h"><span id="act-title">Activity</span> <em id="heat-sum"></em></div>
+      <div class="metric" id="metric"><span data-m="s" class="on">Sessions</span><span data-m="tok">Tokens</span><span data-m="c">Cost</span><span data-m="k">Calls</span></div>
+      <div class="months" id="months"></div>
+      <div class="heat" id="heat"></div>
+      <div class="hl"><span id="peak"></span><span class="scale"><span id="less">less</span><i style="background:#1c1c1c"></i><i style="background:#4a2308"></i><i style="background:#8a3c0a"></i><i style="background:#d2600f"></i><i style="background:#ff8a2a"></i><span id="more">more</span></span></div>
+    </div>
+    <div id="sections"></div>
+  </section>
+  <section id="t-companion" hidden></section>
+  <section id="t-shop" hidden></section>
+  <section id="t-bag" hidden></section>
+  <section id="t-dex" hidden></section>
   <div id="tip"></div>
+  <div id="toast"></div>
 </div>
 <script>
 const invoke=window.__TAURI__.core.invoke, listen=window.__TAURI__.event.listen;
 let cb={available:false,periods:{},days:{}}, prov='all', per='today', metric='s', openSec=null;
+let tab='uso', lang='en';
+let comp=null, tokens=null, prefs={pillMode:'cell',animation:'balanced',limitDisplay:'used'}, usage={windows:[]}, codexU={windows:[]};
+let provTab='claude', dexSeg='dex', dexPage=0, dexFilter={}, profileId=null, profileDex=null, confirmEgg=null, clock24=true;
 const RAMP=['#1c1c1c','#4a2308','#8a3c0a','#d2600f','#ff8a2a'];
 const PCOL={claude:'#FF7A1A',codex:'#6ab7ff',cursor:'#b28cff',gemini:'#5ad1a4'};
 const NAMES={claude:'Claude',codex:'Codex',cursor:'Cursor',gemini:'Gemini'};
-const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const PNAMES={claude:'Claude Code',codex:'Codex'};
+const RAR={common:'#8e8e93',uncommon:'#34c759',rare:'#0a84ff',legendary:'#ff9f0a'};
 const esc=s=>{const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;};
-const nf=n=>(n||0).toLocaleString('en-US');
-const tok=n=>n>=1e9?(n/1e9).toFixed(1)+'B':n>=1e6?Math.round(n/1e6)+'M':n>=1e3?Math.round(n/1e3)+'k':String(n||0);
+const nf=n=>(n||0).toLocaleString(lang==='pt'?'pt-BR':'en-US');
+// PokeTokenBar's compact tokens: 12.3K, 190.6M, 1.24B
+function tok(n){ n=Number(n)||0; const trim=(v,d)=>{let s=v.toFixed(d); while(s.endsWith('0')) s=s.slice(0,-1); if(s.endsWith('.')) s=s.slice(0,-1); return s;};
+  if(n<1e3) return String(n); if(n<1e6) return trim(n/1e3,1)+'K'; if(n<1e9) return trim(n/1e6,1)+'M'; return trim(n/1e9,2)+'B'; }
 const usd=n=>n==null||!isFinite(n)?'—':n>=10000?'$'+(n/1000).toFixed(1)+'k':'$'+Math.round(n).toLocaleString('en-US');
+const usd2=n=>n==null||!isFinite(n)?'':'$'+n.toFixed(2);
 const base=p=>String(p||'').split(/[\\/]/).filter(Boolean).pop()||String(p||'');
-const ago=ms=>{const m=Math.round((Date.now()-ms)/60000);return m<1?'just now':m<60?m+' min ago':Math.round(m/60)+' h ago';};
-// Claude.ai connectors show up as UUIDs; a short form is all that can honestly be said about them
+const ago=ms=>{const m=Math.round((Date.now()-ms)/60000);return m<1?T('just now'):m<60?m+' '+T('min ago'):Math.round(m/60)+' '+T('h ago');};
 const mcpName=n=>/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(n)?'connector '+n.slice(0,4):n;
 
-function seg(id,val){ document.querySelectorAll(`#${id} span`).forEach(s=>s.classList.toggle('on',s.dataset.v===val)); }
-function li(a,b,cls=''){ return `<div class="li"><span>${a}</span><span class="${cls}">${b}</span></div>`; }
+/* ---- words: English, Portuguese ---- */
+const PT={
+  'Uso':'Uso','Companion':'Companheiro','Shop':'Loja','Bag':'Mochila','Pokédex':'Pokédex','All':'Tudo','Today':'Hoje','7 days':'7 dias','30 days':'30 dias','Month':'Mês',
+  'Activity':'Atividade','Sessions':'Sessões','Tokens':'Tokens','Cost':'Custo','Calls':'Chamadas','less':'menos','more':'mais','just now':'agora','min ago':'min atrás','h ago':'h atrás',
+  'codeburn is not installed (npm i -g codeburn).':'O codeburn não está instalado (npm i -g codeburn).','Reading codeburn… the first pass takes a minute or two.':'Lendo o codeburn… a primeira passada leva um ou dois minutos.',
+  'API cost':'Custo API','Cache':'Cache','First try':'1ª tentativa','Cost per day':'Custo por dia','14 days · peak':'14 dias · pico','today':'hoje','Projects':'Projetos','sessions':'sessões','Top sessions':'Maiores sessões','calls':'chamadas','Models':'Modelos','Activities':'Atividades','turns':'turnos','Tools and MCPs':'Ferramentas e MCPs','Skills and subagents':'Skills e subagentes','Waste':'Desperdício','Retries':'Tentativas repetidas','Corrections asked for':'Correções pedidas','Time to first edit':'Tempo até a primeira edição','Reworked files':'Arquivos retrabalhados','edits':'edições','No recorded activity':'Sem atividade registrada','active days':'dias ativos','in 26 weeks':'em 26 semanas','no history yet':'sem histórico ainda','Peak':'Pico','tokens':'tokens','Turns':'Turnos','Input / output':'Entrada / saída','Cache read / write':'Cache lido / gravado','Pricier model where':'Modelo mais caro onde','would do':'bastaria',
+  'Egg':'Ovo','Incubating':'Incubando','About to hatch!':'Está quase chocando!','to hatch':'para chocar','Final form':'Forma final','Form':'Forma','of':'de','to graduation':'para formar','to next evolution':'para evoluir','Keeping quiet today.':'Hoje está quietinho.',"Today's work is piling up.":'O trabalho de hoje está se acumulando.','In focus mode now.':'Agora está em modo foco.','Close to the limit. A short break is fine.':'Está perto do limite. Uma pausa cai bem.','Sleeping now.':'Agora está dormindo.','It grew!':'Cresceu!','Hatching soon.':'Vai chocar logo.','evolved!':'evoluiu!','Graduated!':'Formou-se!','Hatched!':'Chocou!','Huh? It is Ditto!':'Ué? É um Ditto!',
+  "Today's tokens":'Tokens de hoje','This week':'Esta semana','This month':'Este mês','Daily this month':'Este mês, por dia','Limits (official)':'Limites (oficiais)','5-hour session':'Sessão de 5 h','Weekly':'Semanal','used':'usado','left':'restante','Resets':'Reinicia','Resetting…':'Reiniciando…','Waiting for the first reading…':'Aguardando a primeira leitura…','No transcripts found yet. Use Claude Code or Codex and the egg starts incubating.':'Nenhuma transcrição encontrada ainda. Use o Claude Code ou o Codex e o ovo começa a incubar.',
+  'Spendable tokens':'Tokens para gastar',"Spend the tokens you've used on items.":'Gaste os tokens que você já usou em itens.','Price':'Preço','Buy':'Comprar','Owned':'Tem','Not enough tokens':'Tokens insuficientes','Owned already':'Já tem','Needs a Pokémon to send off':'Precisa de um Pokémon para despedir',
+  'Rare Candy':'Rare Candy','Mint':'Mint','Shiny Charm':'Shiny Charm','Pokémon Egg':'Ovo Pokémon','Uncommon Egg':'Ovo Incomum','Rare Egg':'Ovo Raro',
+  "Raises your Pokémon's EXP by 100M.":'Aumenta o EXP do seu Pokémon em 100M.',"Randomly changes your Pokémon's nature.":'Troca a natureza do seu Pokémon por outra, ao acaso.','While owned, raises the chance of hatching a shiny.':'Enquanto tiver, aumenta a chance de chocar um shiny.','Send off your current Pokémon and start fresh with a new egg.':'Despede o Pokémon atual e recomeça com um ovo novo.','Send off your current Pokémon for an egg guaranteed to hatch Uncommon or better.':'Despede o Pokémon atual por um ovo que choca Incomum ou melhor.','Send off your current Pokémon for an egg guaranteed to hatch Rare or better.':'Despede o Pokémon atual por um ovo que choca Raro ou melhor.',
+  'Send off':'Despedir','for a':'por um','? It stays in the Pokédex as released.':'? Ele fica na Pokédex como liberado.','Cancel':'Cancelar','Confirm':'Confirmar','It is shiny! Send it off anyway?':'Ele é shiny! Despedir mesmo assim?',
+  'Use':'Usar','Random nature':'Natureza aleatória','on':'em','Use after it hatches':'Use depois de chocar','Needs a Pokémon':'Precisa de um Pokémon','Active · shiny odds 1/48':'Ativo · chance de shiny 1/48','The bag is empty':'A mochila está vazia','Fill a 5-hour or weekly limit to earn a Rare Candy, or buy items in the Shop.':'Encha um limite de 5 h ou semanal para ganhar um Rare Candy, ou compre itens na Loja.',
+  'Catch log':'Capturas','species':'espécies','total':'no total','Legendary':'Lendário','Rare':'Raro','Uncommon':'Incomum','Common':'Comum','RAISING':'CRIANDO','RELEASED':'LIBERADO','Raising':'Criando','Nothing here yet':'Nada por aqui ainda','Graduate your first Pokémon and it lands here.':'Forme seu primeiro Pokémon e ele aparece aqui.','days':'dias','day':'dia','hr':'h',
+  'Individual':'Indivíduo','Level':'Nível','Gender':'Gênero','Nature':'Natureza','Ability':'Habilidade','hidden':'oculta','Actual stats':'Stats reais','Known moves':'Golpes conhecidos','Lv.':'Nv.','Male':'Macho','Female':'Fêmea','Genderless':'Sem gênero','Height':'Altura','Weight':'Peso','Loading details…':'Carregando detalhes…','Details unavailable (offline?)':'Detalhes indisponíveis (offline?)','Pin on the pill':'Fixar na pílula','Pinned on the pill':'Fixado na pílula','Follow the companion':'Seguir o companheiro','Raised in':'Criado em','Released':'Liberado',
+  'HP':'HP','Attack':'Ataque','Defense':'Defesa','Sp. Atk':'At. Esp.','Sp. Def':'Def. Esp.','Speed':'Veloc.',
+  'Bought':'Comprado','Used':'Usado','+100M EXP':'+100M EXP','New nature:':'Nova natureza:','Refused':'Não foi possível','Pinned':'Fixado'
+};
+const T=k=>lang==='pt'?(PT[k]||k):k;
+const NAT={hardy:['Hardy','Esforçada'],lonely:['Lonely','Carente'],brave:['Brave','Corajosa'],adamant:['Adamant','Teimosa'],naughty:['Naughty','Levada'],bold:['Bold','Ousada'],docile:['Docile','Dócil'],relaxed:['Relaxed','Descontraída'],impish:['Impish','Travessa'],lax:['Lax','Despreocupada'],timid:['Timid','Medrosa'],hasty:['Hasty','Apressada'],serious:['Serious','Séria'],jolly:['Jolly','Alegre'],naive:['Naive','Ingênua'],modest:['Modest','Modesta'],mild:['Mild','Meiga'],quiet:['Quiet','Discreta'],bashful:['Bashful','Tímida'],rash:['Rash','Impulsiva'],calm:['Calm','Calma'],gentle:['Gentle','Gentil'],sassy:['Sassy','Atrevida'],careful:['Careful','Cautelosa'],quirky:['Quirky','Excêntrica']};
+const natName=n=>NAT[n]?NAT[n][lang==='pt'?1:0]:(n||'');
+const rarName=r=>T({common:'Common',uncommon:'Uncommon',rare:'Rare',legendary:'Legendary'}[r]||r);
+const cap=s=>s?s.charAt(0).toUpperCase()+s.slice(1):'';
+const moveName=s=>String(s||'').split('-').map(cap).join(' ');
+function applyStatic(){
+  document.querySelectorAll('#tabs span').forEach(s=>s.textContent=T({uso:'Uso',companion:'Companion',shop:'Shop',bag:'Bag',dex:'Pokédex'}[s.dataset.t]));
+  document.querySelectorAll('#prov span').forEach(s=>s.textContent=T({all:'All',claude:'Claude',codex:'Codex'}[s.dataset.v]));
+  document.querySelectorAll('#per span').forEach(s=>s.textContent=T({today:'Today',week:'7 days','30days':'30 days',month:'Month'}[s.dataset.v]));
+  document.querySelectorAll('#metric span').forEach(s=>s.textContent=T({s:'Sessions',tok:'Tokens',c:'Cost',k:'Calls'}[s.dataset.m]));
+  document.getElementById('act-title').textContent=T('Activity'); document.getElementById('less').textContent=T('less'); document.getElementById('more').textContent=T('more');
+}
+
+/* ---- sprites: data URLs from Rust, cached here; an <img data-need> is filled when it arrives ---- */
+const SPR={}, pending=new Set();
+function sprKey(id,anim,shiny){ return `${id}|${anim?1:0}|${shiny?1:0}`; }
+function spr(id,anim,shiny,cls){
+  const k=sprKey(id,anim,shiny);
+  if(SPR[k]) return `<img class="spr ${cls||''}" src="${SPR[k]}" alt="">`;
+  // The static frame is the placeholder while the GIF downloads
+  const s=SPR[sprKey(id,false,shiny)];
+  return `<img class="spr ${cls||''}" data-need="${k}"${s?` src="${s}"`:''} alt="">`;
+}
+function fillSprites(){
+  document.querySelectorAll('img[data-need]').forEach(img=>{
+    const k=img.dataset.need; if(SPR[k]){ img.src=SPR[k]; img.removeAttribute('data-need'); return; }
+    if(pending.has(k)) return; pending.add(k);
+    const [id,a,sh]=k.split('|');
+    invoke('get_sprite',{what:id,animated:a==='1',shiny:sh==='1'}).then(u=>{ pending.delete(k); if(u){ SPR[k]=u; document.querySelectorAll(`img[data-need="${k}"]`).forEach(i=>{i.src=u;i.removeAttribute('data-need');}); report(); } }).catch(()=>pending.delete(k));
+  });
+}
+const animated=()=>prefs.animation!=='saver';
+const badge=(txt,col)=>`<span class="badge" style="background:${col}">${esc(txt)}</span>`;
+const arrow='<svg viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>';
+
+/* ---- tabs ---- */
+function setTab(t){
+  tab=t; document.querySelectorAll('#tabs span').forEach(s=>s.classList.toggle('on',s.dataset.t===t));
+  for(const id of ['uso','companion','shop','bag','dex']) document.getElementById('t-'+id).hidden=id!==t;
+  document.getElementById('title').textContent=t==='uso'?T('Uso'):'NotchMon';
+  render();
+}
+document.getElementById('tabs').addEventListener('click',e=>{const s=e.target.closest('span'); if(s) setTab(s.dataset.t);});
 
 function render(){
+  applyStatic();
+  if(tab==='uso') renderUso(); else if(tab==='companion') renderCompanion(); else if(tab==='shop') renderShop(); else if(tab==='bag') renderBag(); else renderDex();
+  fillSprites(); report();
+}
+
+/* ================= Uso: the codeburn panel, as it was ================= */
+function seg(id,val){ document.querySelectorAll(`#${id} span`).forEach(s=>s.classList.toggle('on',s.dataset.v===val)); }
+function li(a,b,cls=''){ return `<div class="li"><span>${a}</span><span class="${cls}">${b}</span></div>`; }
+function renderUso(){
   seg('prov',prov); seg('per',per);
   const v=cb.periods[`${prov}:${per}`], cur=v&&v.current;
   document.getElementById('age').textContent=v&&v.generated?ago(Date.parse(v.generated)):'';
   const sum=document.getElementById('summary'), secs=document.getElementById('sections');
-  if(!cb.available){ sum.innerHTML=`<div class="empty">codeburn is not installed (npm i -g codeburn).</div>`; secs.innerHTML=''; paintHeat(); report(); return; }
-  if(!cur){ sum.innerHTML=`<div class="empty">Reading codeburn… the first pass takes a minute or two.</div>`; secs.innerHTML=''; paintHeat(); report(); return; }
-  const tokens=(cur.inputTokens||0)+(cur.outputTokens||0)+(cur.cacheReadTokens||0)+(cur.cacheWriteTokens||0);
+  if(!cb.available){ sum.innerHTML=`<div class="empty">${T('codeburn is not installed (npm i -g codeburn).')}</div>`; secs.innerHTML=''; paintHeat(); return; }
+  if(!cur){ sum.innerHTML=`<div class="empty">${T('Reading codeburn… the first pass takes a minute or two.')}</div>`; secs.innerHTML=''; paintHeat(); return; }
+  const tokensN=(cur.inputTokens||0)+(cur.outputTokens||0)+(cur.cacheReadTokens||0)+(cur.cacheWriteTokens||0);
   let h=`<div class="kpis">
-    <div class="kpi"><span>API cost</span><b>${usd(cur.cost)}</b></div><div class="kpi"><span>Calls</span><b>${nf(cur.calls)}</b></div><div class="kpi"><span>Sessions</span><b>${nf(cur.sessions)}</b></div>
-    <div class="kpi"><span>Tokens</span><b>${tok(tokens)}</b></div><div class="kpi"><span>Cache</span><b>${cur.cacheHitPercent!=null?Math.round(cur.cacheHitPercent)+'%':'—'}</b></div><div class="kpi"><span>First try</span><b>${cur.oneShotRate!=null?Math.round(cur.oneShotRate*100)+'%':'—'}</b></div></div>`;
+    <div class="kpi"><span>${T('API cost')}</span><b>${usd(cur.cost)}</b></div><div class="kpi"><span>${T('Calls')}</span><b>${nf(cur.calls)}</b></div><div class="kpi"><span>${T('Sessions')}</span><b>${nf(cur.sessions)}</b></div>
+    <div class="kpi"><span>${T('Tokens')}</span><b>${tok(tokensN)}</b></div><div class="kpi"><span>${T('Cache')}</span><b>${cur.cacheHitPercent!=null?Math.round(cur.cacheHitPercent)+'%':'—'}</b></div><div class="kpi"><span>${T('First try')}</span><b>${cur.oneShotRate!=null?Math.round(cur.oneShotRate*100)+'%':'—'}</b></div></div>`;
   if(prov==='all'&&cur.providers){
     const ent=Object.entries(cur.providers).filter(([,c])=>c>0).sort((a,b)=>b[1]-a[1]), tot=ent.reduce((a,[,c])=>a+c,0)||1;
     h+=`<div class="split">${ent.map(([k,c])=>`<div style="width:${c/tot*100}%;background:${PCOL[k]||'#888'}"></div>`).join('')}</div>
       <div class="legend2">${ent.map(([k,c])=>`<span><i style="background:${PCOL[k]||'#888'}"></i>${esc(NAMES[k]||k)} ${usd(c)}</span>`).join('')}</div>`;
   }
   sum.innerHTML=h;
-
   const S=[];
   if(v.daily&&v.daily.length){
     const mx=Math.max(...v.daily.map(d=>d.cost||0),1), pk=v.daily.reduce((a,d)=>(d.cost||0)>(a.cost||0)?d:a,v.daily[0]);
     const tone=f=>f<.5?`hsl(${150-f*120},100%,55%)`:`hsl(${90-(f-.5)*2*75},100%,52%)`;
-    S.push(['Cost per day',`14 days · peak ${usd(pk.cost)}`,`<div class="chart">${v.daily.map((d,i)=>`<i title="${esc(d.date)}: ${usd(d.cost)}" style="height:${Math.max(2,Math.round((d.cost||0)/mx*100))}%;background:${i===v.daily.length-1?'#fff':tone((d.cost||0)/mx)}"></i>`).join('')}</div><div class="axis"><span>${esc(v.daily[0].date.slice(5))}</span><span>today</span></div>`]);
+    S.push([T('Cost per day'),`${T('14 days · peak')} ${usd(pk.cost)}`,`<div class="chart">${v.daily.map((d,i)=>`<i title="${esc(d.date)}: ${usd(d.cost)}" style="height:${Math.max(2,Math.round((d.cost||0)/mx*100))}%;background:${i===v.daily.length-1?'#fff':tone((d.cost||0)/mx)}"></i>`).join('')}</div><div class="axis"><span>${esc(v.daily[0].date.slice(5))}</span><span>${T('today')}</span></div>`]);
   }
   const P=cur.topProjects||[];
-  if(P.length) S.push(['Projects',`${esc(base(P[0].name))} · ${usd(P[0].cost)}`,P.map(p=>li(esc(base(p.name)),`${usd(p.cost)} · ${nf(p.sessions)} sessions`)).join('')]);
-  const T=cur.topSessions||[];
-  if(T.length) S.push(['Top sessions',`${esc(base(T[0].project))} · ${usd(T[0].cost)}`,T.map(t=>li(`${esc(base(t.project))} <span class="muted">${esc((t.date||'').slice(5))}</span>`,`${usd(t.cost)} · ${nf(t.calls)} calls`)).join('')]);
+  if(P.length) S.push([T('Projects'),`${esc(base(P[0].name))} · ${usd(P[0].cost)}`,P.map(p=>li(esc(base(p.name)),`${usd(p.cost)} · ${nf(p.sessions)} ${T('sessions')}`)).join('')]);
+  const TS=cur.topSessions||[];
+  if(TS.length) S.push([T('Top sessions'),`${esc(base(TS[0].project))} · ${usd(TS[0].cost)}`,TS.map(t=>li(`${esc(base(t.project))} <span class="muted">${esc((t.date||'').slice(5))}</span>`,`${usd(t.cost)} · ${nf(t.calls)} ${T('calls')}`)).join('')]);
   const M=cur.topModels||[], E={}; (cur.modelEfficiency||[]).forEach(e=>E[e.name]=e);
-  if(M.length) S.push(['Models',`${esc(M[0].name)} · ${usd(M[0].cost)}`,M.map(m=>{const e=E[m.name];return li(esc(m.name),`${usd(m.cost)}${e?` · $${e.costPerEdit.toFixed(2)}/edit · ${Math.round(e.oneShotRate)}%`:''}`);}).join('')]);
+  if(M.length) S.push([T('Models'),`${esc(M[0].name)} · ${usd(M[0].cost)}`,M.map(m=>{const e=E[m.name];return li(esc(m.name),`${usd(m.cost)}${e?` · $${e.costPerEdit.toFixed(2)}/edit · ${Math.round(e.oneShotRate)}%`:''}`);}).join('')]);
   const A=cur.topActivities||[];
-  if(A.length) S.push(['Activities',`${esc(A[0].name)} · ${usd(A[0].cost)}`,A.map(a=>li(esc(a.name),`${usd(a.cost)} · ${nf(a.turns)} turns`)).join('')]);
+  if(A.length) S.push([T('Activities'),`${esc(A[0].name)} · ${usd(A[0].cost)}`,A.map(a=>li(esc(a.name),`${usd(a.cost)} · ${nf(a.turns)} ${T('turns')}`)).join('')]);
   const TL=(cur.tools||[]).slice(0,6), MC=(cur.mcpServers||[]).slice(0,6);
-  if(TL.length||MC.length) S.push(['Tools and MCPs',TL.length?`${esc(TL[0].name)} · ${nf(TL[0].calls)}`:'',TL.map(t=>li(esc(t.name),nf(t.calls))).join('')+MC.map(m=>li(`${esc(mcpName(m.name))} <span class="muted">MCP</span>`,nf(m.calls))).join('')]);
+  if(TL.length||MC.length) S.push([T('Tools and MCPs'),TL.length?`${esc(TL[0].name)} · ${nf(TL[0].calls)}`:'',TL.map(t=>li(esc(t.name),nf(t.calls))).join('')+MC.map(m=>li(`${esc(mcpName(m.name))} <span class="muted">MCP</span>`,nf(m.calls))).join('')]);
   const SK=(cur.skills||[]).slice(0,6), SA=cur.subagents||[];
-  if(SK.length||SA.length) S.push(['Skills and subagents',SK.length?`${esc(SK[0].name)} · ${usd(SK[0].cost)}`:'',SK.map(k=>li(esc(k.name),`${usd(k.cost)} · ${nf(k.turns)} turns`)).join('')+SA.map(a=>li(`${esc(a.name)} <span class="muted">subagent</span>`,`${usd(a.cost)} · ${nf(a.calls)} calls`)).join('')]);
+  if(SK.length||SA.length) S.push([T('Skills and subagents'),SK.length?`${esc(SK[0].name)} · ${usd(SK[0].cost)}`:'',SK.map(k=>li(esc(k.name),`${usd(k.cost)} · ${nf(k.turns)} ${T('turns')}`)).join('')+SA.map(a=>li(`${esc(a.name)} <span class="muted">subagent</span>`,`${usd(a.cost)} · ${nf(a.calls)} ${T('calls')}`)).join('')]);
   const rt=cur.retryTax, rw=cur.routingWaste, wf=cur.workflow;
   if(rt||rw||wf){
     const waste=(rt?rt.totalUSD||0:0)+(rw?rw.totalSavingsUSD||0:0);
     let b='';
-    if(rt) b+=li('Retries',`${usd(rt.totalUSD)} · ${nf(rt.retries)}`,'warn');
-    if(rw&&rw.baselineModel) b+=li(`Pricier model where ${esc(rw.baselineModel)} would do`,usd(rw.totalSavingsUSD),'warn');
-    if(wf){ b+=li('Corrections asked for',nf(wf.corrections)); if(wf.medianTimeToFirstEditMs) b+=li('Time to first edit',`${(wf.medianTimeToFirstEditMs/60000).toFixed(1)} min`); }
-    S.push(['Waste',`<span class="warn">${usd(waste)}</span>`,b]);
+    if(rt) b+=li(T('Retries'),`${usd(rt.totalUSD)} · ${nf(rt.retries)}`,'warn');
+    if(rw&&rw.baselineModel) b+=li(`${T('Pricier model where')} ${esc(rw.baselineModel)} ${T('would do')}`,usd(rw.totalSavingsUSD),'warn');
+    if(wf){ b+=li(T('Corrections asked for'),nf(wf.corrections)); if(wf.medianTimeToFirstEditMs) b+=li(T('Time to first edit'),`${(wf.medianTimeToFirstEditMs/60000).toFixed(1)} min`); }
+    S.push([T('Waste'),`<span class="warn">${usd(waste)}</span>`,b]);
   }
   const RF=cur.topReworkedFiles||[];
-  if(RF.length) S.push(['Reworked files',`${esc(base(RF[0].path))} · ${nf(RF[0].edits)}`,RF.slice(0,6).map(f=>li(esc(base(f.path)),`${nf(f.edits)} edits · ${nf(f.sessions)} sessions`)).join('')]);
-  secs.innerHTML=S.map(([t,val,body],i)=>`<details name="sec" data-t="${esc(t)}"${openSec===t?' open':''}><summary><span class="chev">›</span>${esc(t)}<span class="val">${val}</span></summary><div class="body">${body}</div></details>`).join('');
+  if(RF.length) S.push([T('Reworked files'),`${esc(base(RF[0].path))} · ${nf(RF[0].edits)}`,RF.slice(0,6).map(f=>li(esc(base(f.path)),`${nf(f.edits)} ${T('edits')} · ${nf(f.sessions)} ${T('sessions')}`)).join('')]);
+  secs.innerHTML=S.map(([t,val,body])=>`<details name="sec" data-t="${esc(t)}"${openSec===t?' open':''}><summary><span class="chev">›</span>${esc(t)}<span class="val">${val}</span></summary><div class="body">${body}</div></details>`).join('');
   secs.querySelectorAll('details').forEach(d=>d.addEventListener('toggle',()=>{ if(d.open) openSec=d.dataset.t; else if(openSec===d.dataset.t) openSec=null; report(); }));
-  paintHeat(); report();
+  paintHeat();
 }
-
 // ---- activity grid: 26 weeks, one square a day, from codeburn's session list ----
 const metricOf={s:d=>d.s, tok:d=>d.in+d.out+d.cr+d.cw, c:d=>d.c, k:d=>d.k};
-const fmtOf={s:v=>nf(v)+' sessions', tok:v=>tok(v)+' tokens', c:v=>usd(v), k:v=>nf(v)+' calls'};
+const fmtOf={s:v=>nf(v)+' '+T('sessions'), tok:v=>tok(v)+' '+T('tokens'), c:v=>usd(v), k:v=>nf(v)+' '+T('calls')};
 function ymd(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function buildHeat(){
   const today=new Date(); today.setHours(12,0,0,0);
@@ -153,7 +313,7 @@ function buildHeat(){
   const cells=[], months=[];
   for(let w=0;w<26;w++){
     const first=new Date(start); first.setDate(start.getDate()+7*w);
-    if(first.getDate()<=7) months.push(`<span style="grid-column:${w+1}">${first.toLocaleString('en-US',{month:'short'})}</span>`);
+    if(first.getDate()<=7) months.push(`<span style="grid-column:${w+1}">${first.toLocaleString(lang==='pt'?'pt-BR':'en-US',{month:'short'})}</span>`);
     for(let r=0;r<7;r++){
       const d=new Date(start); d.setDate(start.getDate()+7*w+r);
       const k=ymd(d), cls=d>today?'fut':(k===ymd(today)?'today':'');
@@ -171,33 +331,290 @@ function paintHeat(){
   const vals=cells.map(c=>days[c.dataset.d]?metricOf[metric](days[c.dataset.d]):0), mx=Math.max(...vals,1);
   cells.forEach((c,i)=>{ if(c.classList.contains('fut'))return; const f=vals[i]/mx; c.style.background=RAMP[vals[i]===0?0:f<.15?1:f<.35?2:f<.65?3:4]; });
   const act=cells.filter(c=>days[c.dataset.d]), total=act.reduce((a,c)=>a+metricOf[metric](days[c.dataset.d]),0);
-  document.getElementById('heat-sum').textContent=act.length?`${act.length} active days · ${fmtOf[metric](total)} in 26 weeks`:'no history yet';
+  document.getElementById('heat-sum').textContent=act.length?`${act.length} ${T('active days')} · ${fmtOf[metric](total)} ${T('in 26 weeks')}`:T('no history yet');
   const best=act.reduce((a,c)=>!a||metricOf[metric](days[c.dataset.d])>metricOf[metric](days[a.dataset.d])?c:a,null);
-  document.getElementById('peak').textContent=best?`Peak: ${best.dataset.d.slice(8)}/${best.dataset.d.slice(5,7)} · ${fmtOf[metric](metricOf[metric](days[best.dataset.d]))}`:'';
+  document.getElementById('peak').textContent=best?`${T('Peak')}: ${best.dataset.d.slice(8)}/${best.dataset.d.slice(5,7)} · ${fmtOf[metric](metricOf[metric](days[best.dataset.d]))}`:'';
 }
 const tip=document.getElementById('tip');
+const DOW=()=>lang==='pt'?['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 function showTip(c){
   const key=c.dataset.d, d=((cb.days||{})[prov]||{})[key], dt=new Date(key+'T12:00');
-  let h=`<div class="t-h">${DOW[dt.getDay()]}, ${key.slice(8)}/${key.slice(5,7)}/${key.slice(0,4)}${c.classList.contains('today')?' · today':''}</div>`;
-  if(!d) h+=`<div class="t-sub">No recorded activity</div>`;
+  let h=`<div class="t-h">${DOW()[dt.getDay()]}, ${key.slice(8)}/${key.slice(5,7)}/${key.slice(0,4)}${c.classList.contains('today')?' · '+T('today'):''}</div>`;
+  if(!d) h+=`<div class="t-sub">${T('No recorded activity')}</div>`;
   else{
     const by=Object.entries(d.by||{}).map(([k,n])=>`${NAMES[k]||k} ${nf(n)}`).join(' · ');
-    h+=`<div class="t-sub">${nf(d.s)} sessions${prov==='all'&&by?' · '+esc(by):''}</div><div class="g">
-      <div><span>API cost</span><b>${usd(d.c)}</b></div><div><span>Calls</span><b>${nf(d.k)}</b></div>
-      <div><span>Turns</span><b>${nf(d.t)}</b></div><div><span>Tokens</span><b>${tok(d.in+d.out+d.cr+d.cw)}</b></div>
-      <div><span>Input / output</span><b>${tok(d.in)} / ${tok(d.out)}</b></div><div><span>Cache read / write</span><b>${tok(d.cr)} / ${tok(d.cw)}</b></div></div>`;
-    if(d.p&&d.p.length) h+=`<h5>Projects</h5>`+d.p.map(([n,v])=>li(esc(n),usd(v))).join('');
-    if(d.m&&d.m.length) h+=`<h5>Models</h5><div class="li"><span>${esc(d.m.join(' · '))}</span><span></span></div>`;
+    h+=`<div class="t-sub">${nf(d.s)} ${T('sessions')}${prov==='all'&&by?' · '+esc(by):''}</div><div class="g">
+      <div><span>${T('API cost')}</span><b>${usd(d.c)}</b></div><div><span>${T('Calls')}</span><b>${nf(d.k)}</b></div>
+      <div><span>${T('Turns')}</span><b>${nf(d.t)}</b></div><div><span>${T('Tokens')}</span><b>${tok(d.in+d.out+d.cr+d.cw)}</b></div>
+      <div><span>${T('Input / output')}</span><b>${tok(d.in)} / ${tok(d.out)}</b></div><div><span>${T('Cache read / write')}</span><b>${tok(d.cr)} / ${tok(d.cw)}</b></div></div>`;
+    if(d.p&&d.p.length) h+=`<h5>${T('Projects')}</h5>`+d.p.map(([n,v])=>li(esc(n),usd(v))).join('');
+    if(d.m&&d.m.length) h+=`<h5>${T('Models')}</h5><div class="li"><span>${esc(d.m.join(' · '))}</span><span></span></div>`;
   }
   tip.innerHTML=h; tip.style.display='block';
   const panel=document.getElementById('panel').getBoundingClientRect(), heat=document.getElementById('heat').getBoundingClientRect(), r=c.getBoundingClientRect();
   const W=tip.offsetWidth, H=tip.offsetHeight;
   let x=r.left+r.width/2-W/2-panel.left; x=Math.max(8,Math.min(x,panel.width-W-8));
-  let y=heat.top-panel.top-H-8; if(y<8) y=heat.bottom-panel.top+8; // above the grid, or below when there is no room
+  let y=heat.top-panel.top-H-8; if(y<8) y=heat.bottom-panel.top+8;
   tip.style.left=x+'px'; tip.style.top=y+'px';
 }
 
-// ---- wiring ----
+/* ================= Companion ================= */
+function moodText(){
+  const ev=comp.lastEvent, live=comp.eventUntil>Date.now();
+  if(comp.isEgg) return comp.eggUsage>0?T('Hatching soon.'):T('Incubating');
+  if(live&&ev){
+    if(ev.kind==='evolved') return `${esc(ev.name)} ${T('evolved!')}`;
+    if(ev.kind==='hatched') return T('It grew!');
+    if(ev.kind==='dittoRevealed') return T('Huh? It is Ditto!');
+  }
+  return T({idle:'Keeping quiet today.',working:"Today's work is piling up.",focus:'In focus mode now.',tired:'Close to the limit. A short break is fine.',sleep:'Sleeping now.',levelUp:'It grew!'}[comp.display]||'Keeping quiet today.');
+}
+function heroHtml(){
+  if(!comp) return `<div class="empty">${T('Waiting for the first reading…')}</div>`;
+  if(comp.isEgg){
+    const p=Math.min(1,comp.eggUsage/Math.max(1,comp.eggThreshold));
+    return `<div class="hero"><div class="pic">${spr(0,false,false)}</div><div style="flex:1;min-width:0">
+      <div class="h-name">${T('Egg')} ${comp.eggTier?badge(rarName(comp.eggTier).toUpperCase()+' +',RAR[comp.eggTier]):''}</div>
+      <div class="h-sub">${p>=.9?T('About to hatch!'):T('Incubating')}</div>
+      <div class="xp"><div style="width:${(p*100).toFixed(1)}%"></div></div>
+      <div class="h-left">${tok(Math.max(0,comp.eggThreshold-comp.eggUsage))} ${T('to hatch')}</div>
+      <div class="h-mood">${moodText()}</div></div></div>`;
+  }
+  const a=comp.active, sh=a.isShiny&&!(a.dittoDisguise&&!a.dittoRevealed);
+  const stage=comp.isFinal?T('Final form'):`${T('Form')} ${a.stage+1} ${T('of')} ${a.totalForms}`;
+  const left=`${tok(comp.tokensToNext)} ${comp.isFinal?T('to graduation'):T('to next evolution')}`;
+  let line='';
+  for(let i=0;i<comp.line.length;i++){
+    const [id,st]=comp.line[i];
+    line+=`<div class="n ${st}">${spr(st==='mystery'?id:id,false,sh)}<span>${st==='mystery'?'?':esc(comp.names&&comp.names[id]||nameOf(id))}</span><i></i></div>`;
+    if(i<comp.line.length-1) line+=arrow;
+  }
+  return `<div class="hero"><div class="pic${sh?' shiny':''}">${spr(comp.currentId,animated(),sh)}</div><div style="flex:1;min-width:0">
+      <div class="h-name">${esc(comp.name)} ${badge(rarName(a.rarity).toUpperCase(),RAR[a.rarity])}${sh?badge('✨ SHINY','#6b5a10'):''}${a.growthBoost?badge('×2','#2a2a2a'):''}</div>
+      <div class="h-sub">${stage} · ${esc(natName(a.nature))} · ${T('Lv.')} ${a.profile.level}</div>
+      <div class="xp"><div style="width:${(comp.progress*100).toFixed(1)}%"></div></div>
+      <div class="h-left">${left}</div>
+      <div class="h-mood">${moodText()}</div></div></div>
+    <div class="evo">${line}</div>`;
+}
+function nameOf(id){
+  if(!comp) return '#'+id;
+  const pick=m=>m&&(lang==='pt'?(m['pt-br']||m['pt']||m['en']):(m[lang]||m['en']));
+  if(comp.active&&comp.active.names&&comp.active.names[id]) return pick(comp.active.names[id])||'#'+id;
+  for(const d of comp.dex||[]) if(d.names&&d.names[id]) return pick(d.names[id])||'#'+id;
+  return '#'+id;
+}
+function resetCopy(ms){
+  if(!ms) return '';
+  const diff=ms-Date.now(); if(diff<=0) return T('Resetting…');
+  const d=new Date(ms), loc=lang==='pt'?'pt-BR':'en-US';
+  const t=d.toLocaleTimeString(loc,{hour:'numeric',minute:'2-digit',hourCycle:clock24?'h23':'h12'});
+  const m=Math.round(diff/60000);
+  const rel=m<60?`${m}m`:m<24*60?`${Math.floor(m/60)}h ${m%60}m`:`${Math.floor(m/1440)}d ${Math.floor((m%1440)/60)}h`;
+  return diff<24*3600e3?`${rel} (${t})`:`${rel} (${d.toLocaleDateString(loc,{weekday:'short'})} ${t})`;
+}
+function limitRow(label,w){
+  if(!w) return '';
+  const used=Math.min(1,w.used), val=prefs.limitDisplay==='remaining'?`${Math.round((1-used)*100)}% ${T('left')}`:`${Math.round(used*100)}% ${T('used')}`;
+  const tone=f=>f<.5?`hsl(${150-f*120},100%,55%)`:`hsl(${90-(f-.5)*2*75},100%,52%)`;
+  return `<div class="w-row"><span class="w-label">${esc(label)}</span><span class="w-reset">${resetCopy(w.resets_at)}</span><span style="color:${tone(used)};font-weight:700">${val}</span></div><div class="w-track"><div class="w-fill" style="width:${((prefs.limitDisplay==='remaining'?1-used:used)*100).toFixed(0)}%;background:${tone(used)}"></div></div>`;
+}
+function renderCompanion(){
+  const el=document.getElementById('t-companion');
+  let h=heroHtml();
+  h+=`<div class="hair"></div><div class="muted" style="font-size:12px">${T("Today's tokens")}</div>`;
+  if(!tokens||!Object.keys(tokens.providers||{}).length){
+    h+=`<div class="empty">${T('No transcripts found yet. Use Claude Code or Codex and the egg starts incubating.')}</div>`;
+  }else{
+    const P=tokens.providers, sum=k=>Object.values(P).reduce((a,p)=>a+p[k].in+p[k].out+p[k].cw+p[k].cr,0);
+    const todayN=sum('today'), weekN=sum('week'), monthN=sum('month');
+    const cost=cb.available&&cb.periods['all:today']&&cb.periods['all:today'].current?usd2(cb.periods['all:today'].current.cost):'';
+    const wc=cb.available&&cb.periods['all:week']&&cb.periods['all:week'].current?usd2(cb.periods['all:week'].current.cost):'';
+    const mc=cb.available&&cb.periods['all:month']&&cb.periods['all:month'].current?usd2(cb.periods['all:month'].current.cost):'';
+    h+=`<div class="row" style="align-items:baseline;margin-top:4px"><span class="big">${tok(todayN)}</span><span style="font-size:12px;color:#808080">${nf(todayN)}</span><span style="margin-left:auto;font-size:15px;color:#9a9a9a">${cost}</span></div>
+      <div class="row" style="font-size:12px;color:#9a9a9a;margin-top:8px;justify-content:space-between"><span>${T('This week')} <b style="color:#e8e8ea">${tok(weekN)}</b> ${wc}</span><span>${T('This month')} <b style="color:#e8e8ea">${tok(monthN)}</b> ${mc}</span></div>`;
+    // This month, day by day, every tool together
+    const now=new Date(), y=now.getFullYear(), m=now.getMonth(), dim=new Date(y,m+1,0).getDate(), td=now.getDate();
+    const days=[]; let peak=0, peakD=1;
+    for(let d=1;d<=td;d++){ const k=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; const v=Object.values(P).reduce((a,p)=>{const x=p.days[k];return a+(x?x.in+x.out+x.cw+x.cr:0);},0); days.push(v); if(v>peak){peak=v;peakD=d;} }
+    const mx=Math.max(peak,1);
+    h+=`<div class="row" style="font-size:11px;color:#9a9a9a;margin-top:12px;justify-content:space-between"><span>${T('Daily this month')}</span><span style="color:#c8c8c8">${td}/${m+1} ${tok(days[td-1]||0)}</span><span>${T('Peak')} <b style="color:#e8e8ea">${tok(peak)}</b></span></div>
+      <div class="chart" style="height:40px;gap:3px;border:none">${days.map((v,i)=>`<i title="${i+1}: ${tok(v)}" style="height:${Math.max(3,Math.round(v/mx*100))}%;background:${i===td-1?'#0a84ff':'#3a3a3a'};border-radius:3px"></i>`).join('')}</div>
+      <div class="axis"><span>1</span><span style="color:#0a84ff">${td}</span>${dim>td?`<span>${dim}</span>`:''}</div>`;
+    const ids=Object.keys(P); if(!P[provTab]) provTab=ids[0];
+    if(ids.length>1) h+=`<div class="ptabs">${ids.map(k=>`<span data-pt="${k}" class="${k===provTab?'on':''}">${esc(PNAMES[k]||k)}</span>`).join('')}</div>`;
+    const p=P[provTab], t=p.today, pc=cb.available&&cb.periods[provTab+':today']&&cb.periods[provTab+':today'].current?usd2(cb.periods[provTab+':today'].current.cost):'';
+    h+=`<div class="row" style="justify-content:space-between;margin-top:${ids.length>1?8:14}px"><span style="font-size:14px;font-weight:700;color:#fff">${esc(PNAMES[provTab]||provTab)}</span><span style="font-size:14px;font-weight:700;color:#fff">${tok(t.in+t.out+t.cw+t.cr)} <span style="color:#9a9a9a;font-weight:400">${pc}</span></span></div>
+      <div class="row" style="font-size:11px;color:#9a9a9a;margin-top:4px;gap:12px;flex-wrap:wrap"><span>in ${tok(t.in)}</span><span>out ${tok(t.out)}</span><span>cache w ${tok(t.cw)}</span><span>cache r ${tok(t.cr)}</span></div>`;
+    const models=Object.entries(p.modelsToday||{}).sort((a,b)=>b[1]-a[1]);
+    if(models.length>1) h+=`<div style="margin-top:6px">${models.map(([mn,v])=>li(esc(mn),tok(v))).join('')}</div>`;
+  }
+  // Official limits, the same windows the rings draw
+  const five=usage.windows.find(w=>w.id==='session'), week=usage.windows.find(w=>w.id==='weekly_all')||usage.windows.find(w=>w.id==='seven_day');
+  const c5=codexU.windows.find(w=>/5h/i.test(w.label)), cw=codexU.windows.find(w=>/week/i.test(w.label));
+  if(five||week||c5||cw){
+    h+=`<div class="hair"></div><div class="sech" style="margin-top:0">${T('Limits (official)')}</div>`;
+    h+=limitRow('Claude · '+T('5-hour session'),five)+limitRow('Claude · '+T('Weekly'),week)+limitRow('Codex · '+T('5-hour session'),c5)+limitRow('Codex · '+T('Weekly'),cw);
+  }
+  el.innerHTML=h;
+  el.querySelectorAll('[data-pt]').forEach(s=>s.addEventListener('click',()=>{provTab=s.dataset.pt;render();}));
+}
+
+/* ================= Shop ================= */
+const ITEMS={
+  rareCandy:{name:'Rare Candy',desc:"Raises your Pokémon's EXP by 100M.",icon:()=>spr('item:rare-candy',false,false)},
+  mint:{name:'Mint',desc:"Randomly changes your Pokémon's nature.",icon:()=>'<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#34c759" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.5 19 2c1 2 2 4.2 2 8 0 5.5-4.8 10-10 10Z"></path><path d="M2 21c0-3 1.9-5.5 5-6.5"></path></svg>'},
+  shinyCharm:{name:'Shiny Charm',desc:'While owned, raises the chance of hatching a shiny.',icon:()=>spr('item:shiny-charm',false,false)}
+};
+const EGGS={plain:{name:'Pokémon Egg',desc:'Send off your current Pokémon and start fresh with a new egg.',tier:null},uncommon:{name:'Uncommon Egg',desc:'Send off your current Pokémon for an egg guaranteed to hatch Uncommon or better.',tier:'uncommon'},rare:{name:'Rare Egg',desc:'Send off your current Pokémon for an egg guaranteed to hatch Rare or better.',tier:'rare'}};
+function renderShop(){
+  const el=document.getElementById('t-shop');
+  if(!comp){ el.innerHTML=`<div class="empty">${T('Waiting for the first reading…')}</div>`; return; }
+  let h=`<div class="box" style="margin-top:12px"><div style="font-size:12px;color:#9a9a9a">${T('Spendable tokens')}</div><div class="big" style="margin:4px 0">${tok(comp.availableTokens)}</div><div style="font-size:11.5px;color:#808080">${T("Spend the tokens you've used on items.")}</div></div>`;
+  const entries=[];
+  for(const k of Object.keys(ITEMS)){ const owned=comp.inventory[k]||0, done=k==='shinyCharm'&&owned>0; entries.push({kind:'item',k,price:comp.prices[k],done}); }
+  for(const k of Object.keys(EGGS)) entries.push({kind:'egg',k,price:comp.eggPrices[k],done:false});
+  entries.sort((a,b)=>(a.done-b.done)||(a.price-b.price));
+  for(const e of entries){
+    if(e.kind==='item'){
+      const it=ITEMS[e.k], owned=comp.inventory[e.k]||0, can=!e.done&&comp.availableTokens>=e.price;
+      h+=`<div class="item"><div class="top"><div class="ico">${it.icon()}</div><div style="flex:1;min-width:0"><div class="row" style="gap:8px"><b>${T(it.name)}</b>${owned?`<span class="own">${T('Owned')} ×${owned}</span>`:''}</div><div class="desc">${T(it.desc)}</div></div></div>
+        <div class="foot"><span class="price">${T('Price')} ${tok(e.price)}${e.done?` · <span style="color:#34c759">${T('Owned already')}</span>`:(!can?` · ${T('Not enough tokens')}`:'')}</span><button class="btn" data-buy="${e.k}" ${can?'':'disabled'}>${T('Buy')}</button></div></div>`;
+    }else{
+      const eg=EGGS[e.k], can=comp.canBuyEgg&&comp.availableTokens>=e.price;
+      let foot;
+      if(confirmEgg===e.k){
+        const shiny=comp.active&&comp.active.isShiny;
+        foot=`<div class="confirm">${shiny?T('It is shiny! Send it off anyway?')+' ':''}${T('Send off')} <b>${esc(comp.name)}</b> ${T('for a')} ${T(eg.name)}${T('? It stays in the Pokédex as released.')}<div class="row"><button class="btn ghost" data-cancel="1">${T('Cancel')}</button><button class="btn blue" data-egg="${e.k}">${T('Confirm')}</button></div></div>`;
+      }else{
+        foot=`<div class="foot"><span class="price">${T('Price')} ${tok(e.price)}${comp.isEgg?` · ${T('Needs a Pokémon to send off')}`:(!can?` · ${T('Not enough tokens')}`:'')}</span><button class="btn" data-ask="${e.k}" ${can?'':'disabled'}>${T('Buy')}</button></div>`;
+      }
+      h+=`<div class="item"><div class="top"><div class="ico">${spr(0,false,false,'egg')}</div><div style="flex:1;min-width:0"><div class="row" style="gap:8px"><b>${T(eg.name)}</b>${eg.tier?badge(rarName(eg.tier).toUpperCase(),RAR[eg.tier]):''}</div><div class="desc">${T(eg.desc)}</div></div></div>${foot}</div>`;
+    }
+  }
+  el.innerHTML=h;
+  el.querySelectorAll('[data-buy]').forEach(b=>b.addEventListener('click',()=>act('buy',b.dataset.buy,T('Bought'))));
+  el.querySelectorAll('[data-ask]').forEach(b=>b.addEventListener('click',()=>{confirmEgg=b.dataset.ask;render();}));
+  el.querySelectorAll('[data-cancel]').forEach(b=>b.addEventListener('click',()=>{confirmEgg=null;render();}));
+  el.querySelectorAll('[data-egg]').forEach(b=>b.addEventListener('click',()=>{confirmEgg=null;act('egg',b.dataset.egg,T('Bought'));}));
+}
+function act(action,arg,okMsg){
+  invoke('companion_action',{action,arg}).then(v=>{ if(v){ comp=v; render(); } if(okMsg) toast(okMsg); }).catch(e=>toast(T('Refused')));
+}
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ================= Bag ================= */
+function renderBag(){
+  const el=document.getElementById('t-bag');
+  if(!comp){ el.innerHTML=`<div class="empty">${T('Waiting for the first reading…')}</div>`; return; }
+  const owned=Object.keys(ITEMS).filter(k=>(comp.inventory[k]||0)>0);
+  if(!owned.length){ el.innerHTML=`<div class="box" style="margin-top:12px"><b style="color:#fff">${T('The bag is empty')}</b><div class="desc" style="font-size:12px;color:#9a9a9a;margin-top:4px;line-height:1.4">${T('Fill a 5-hour or weekly limit to earn a Rare Candy, or buy items in the Shop.')}</div></div>`; return; }
+  let h='';
+  for(const k of owned){
+    const it=ITEMS[k], n=comp.inventory[k];
+    let foot;
+    if(k==='shinyCharm') foot=`<div style="font-size:12px;color:#34c759;font-weight:600">${T('Active · shiny odds 1/48')}</div>`;
+    else{
+      const can=k==='rareCandy'?comp.canUseCandy:comp.canUseMint;
+      const hint=k==='rareCandy'?`${T('+100M EXP')} ${comp.isEgg?'':T('on')+' '+esc(comp.name)}`:T('Random nature');
+      const why=comp.isEgg?T('Use after it hatches'):(can?'':T('Needs a Pokémon'));
+      foot=`<div class="foot"><span class="price">${can?hint:why||hint}</span><button class="btn" data-use="${k}" ${can?'':'disabled'}>${T('Use')}</button></div>`;
+    }
+    h+=`<div class="item"><div class="top"><div class="ico">${it.icon()}</div><div style="flex:1;min-width:0"><div class="row" style="gap:8px"><b>${T(it.name)}</b><span class="own" style="font-size:12px;font-weight:700">×${n}</span></div><div class="desc">${T(it.desc)}</div></div></div>${foot}</div>`;
+  }
+  el.innerHTML=h;
+  el.querySelectorAll('[data-use]').forEach(b=>b.addEventListener('click',()=>{
+    const k=b.dataset.use;
+    invoke('companion_action',{action:'use',arg:k}).then(v=>{ if(v){ const before=comp&&comp.active?comp.active.nature:null; comp=v; render(); toast(k==='mint'?`${T('New nature:')} ${natName(v.active?v.active.nature:'')}`:T('+100M EXP')); } }).catch(()=>toast(T('Refused')));
+  }));
+}
+
+/* ================= Pokédex ================= */
+function speciesList(){
+  // One cell per species owned: every graduated or released chain, plus the active one's reached forms
+  const acc={};
+  const add=(id,rarity,shiny,raising,names)=>{ const a=acc[id]||(acc[id]={id,rarity,shiny:false,raising:false,names:null}); if(shiny) a.shiny=true; if(raising) a.raising=true; if(names&&names[id]) a.names=names[id]; if(RANK[rarity]>RANK[a.rarity]) a.rarity=rarity; };
+  for(const d of comp.dex||[]) for(const id of d.chain) add(id,d.rarity,d.shiny||d.isShiny,false,d.names);
+  if(comp.active){ const a=comp.active, dis=a.dittoDisguise&&!a.dittoRevealed; for(const id of a.path.slice(0,a.stage+1)) add(id,a.rarity,a.isShiny&&!dis,true,a.names); }
+  return Object.values(acc).sort((x,y)=>x.id-y.id);
+}
+const RANK={common:0,uncommon:1,rare:2,legendary:3};
+function chips(counts){
+  return `<div class="chips">${['legendary','rare','uncommon','common'].map(r=>`<span class="chip ${dexFilter[r]===false||!counts[r]?'off':''}" data-f="${r}" style="${dexFilter[r]!==false&&counts[r]?`background:${RAR[r]}22;color:${RAR[r]}`:''}"><i style="background:${RAR[r]}"></i>${rarName(r)} ${counts[r]||0}</span>`).join('')}</div>`;
+}
+function renderDex(){
+  const el=document.getElementById('t-dex');
+  if(!comp){ el.innerHTML=`<div class="empty">${T('Waiting for the first reading…')}</div>`; return; }
+  if(profileId){ renderProfile(el); return; }
+  let h=`<div class="seg" style="width:200px;margin-top:12px"><span class="blue ${dexSeg==='dex'?'on':''}" data-s="dex">Pokédex</span><span class="blue ${dexSeg==='log'?'on':''}" data-s="log">${T('Catch log')}</span></div>`;
+  if(dexSeg==='dex'){
+    const all=speciesList(), counts={}; all.forEach(s=>counts[s.rarity]=(counts[s.rarity]||0)+1);
+    const list=all.filter(s=>dexFilter[s.rarity]!==false), per=24, pages=Math.max(1,Math.ceil(list.length/per)); dexPage=Math.min(dexPage,pages-1);
+    h+=`<div class="row" style="gap:8px;align-items:baseline;margin-top:10px"><b style="font-size:16px;color:#fff">Pokédex</b><span style="color:#9a9a9a;font-size:13px">${all.length} ${T('species')}</span></div>${chips(counts)}`;
+    if(!all.length) h+=`<div class="box" style="margin-top:10px"><b style="color:#fff">${T('Nothing here yet')}</b><div style="font-size:12px;color:#9a9a9a;margin-top:4px">${T('Graduate your first Pokémon and it lands here.')}</div></div>`;
+    else{
+      h+=`<div class="dexgrid">${list.slice(dexPage*per,dexPage*per+per).map(s=>`<div class="dex ${comp.representative===s.id?'rep':''}" data-id="${s.id}"><small>#${s.id}</small>${spr(s.id,false,s.shiny&&shinyView[s.id])}<span>${esc(pick(s.names)||nameOf(s.id))}</span>${s.shiny?'<span class="star">✨</span>':''}</div>`).join('')}</div>`;
+      h+=`<div class="pager"><span style="padding:0">${comp.representative?`${T('Pinned on the pill')}: #${comp.representative}`:''}</span><span>${pages>1?`<span data-pg="-1">‹</span> ${dexPage+1} / ${pages} <span data-pg="1">›</span>`:''}</span></div>`;
+    }
+  }else{
+    const entries=[];
+    if(comp.active){ const a=comp.active; entries.push({raising:true,rarity:a.rarity,nature:a.nature,chain:a.path.slice(0,a.stage+1),shiny:a.isShiny&&!(a.dittoDisguise&&!a.dittoRevealed),names:a.names,hatched:a.hatchedAt,when:0,id:null}); }
+    for(const d of [...(comp.dex||[])].reverse()) entries.push({raising:false,released:!!d.releasedAt,rarity:d.rarity,nature:d.nature,chain:d.chain,shiny:d.isShiny,names:d.names,hatched:d.hatchedAt,when:d.caughtAt,id:d.id,finalId:d.finalId});
+    const counts={}; entries.forEach(e=>counts[e.rarity]=(counts[e.rarity]||0)+1);
+    h+=`<div class="row" style="gap:8px;align-items:baseline;margin-top:10px"><b style="font-size:16px;color:#fff">${T('Catch log')}</b><span style="color:#9a9a9a;font-size:13px">${entries.length} ${T('total')}</span></div>${chips(counts)}`;
+    for(const e of entries.filter(e=>dexFilter[e.rarity]!==false)){
+      const dur=e.when&&e.hatched?e.when-e.hatched:0, dd=Math.floor(dur/86400e3), hh=Math.floor((dur%86400e3)/3600e3);
+      h+=`<div class="log" ${e.id?`data-open="${e.finalId}" data-dex="${e.id}" style="cursor:pointer"`:''}><div class="top">${badge(rarName(e.rarity).toUpperCase(),RAR[e.rarity])}${e.raising?badge(T('RAISING'),'#1c2f4a'):''}${e.released?badge(T('RELEASED'),'#3a2a2a'):''}${e.shiny?badge('✨','#6b5a10'):''}<span style="margin-left:auto;font-size:12px;color:#9a9a9a">${esc(natName(e.nature))}</span></div>
+        <div class="chain">${e.chain.map((id,i)=>`<div class="n">${spr(id,false,e.shiny)}<span>${esc(pick(e.names&&e.names[id])||nameOf(id))}</span></div>${i<e.chain.length-1?arrow:''}`).join('')}</div>
+        ${dur?`<div class="when">${dd} ${T(dd===1?'day':'days')}, ${hh} ${T('hr')}</div>`:''}</div>`;
+    }
+  }
+  el.innerHTML=h;
+  el.querySelectorAll('[data-s]').forEach(s=>s.addEventListener('click',()=>{dexSeg=s.dataset.s;dexPage=0;render();}));
+  el.querySelectorAll('[data-f]').forEach(s=>s.addEventListener('click',()=>{dexFilter[s.dataset.f]=dexFilter[s.dataset.f]===false;dexPage=0;render();}));
+  el.querySelectorAll('[data-pg]').forEach(s=>s.addEventListener('click',()=>{dexPage+=Number(s.dataset.pg);render();}));
+  el.querySelectorAll('.dex[data-id]').forEach(c=>c.addEventListener('click',()=>{profileId=Number(c.dataset.id);profileDex=bestDexFor(profileId);profile=null;render();loadProfile();}));
+  el.querySelectorAll('.log[data-open]').forEach(c=>c.addEventListener('click',()=>{profileId=Number(c.dataset.open);profileDex=c.dataset.dex;profile=null;render();loadProfile();}));
+}
+const shinyView={};
+const pick=m=>m&&(lang==='pt'?(m['pt-br']||m['pt']||m['en']):(m[lang]||m['en']));
+function bestDexFor(id){ // the individual shown for a species: the one raising it, else the newest owner
+  if(comp.active&&comp.active.path.slice(0,comp.active.stage+1).includes(id)) return null;
+  const owners=(comp.dex||[]).filter(d=>d.chain.includes(id)); return owners.length?owners[owners.length-1].id:null;
+}
+let profile=null, profileErr=false;
+function loadProfile(){
+  const id=profileId, dex=profileDex;
+  invoke('get_pokemon_details',{id,dexId:dex}).then(v=>{ if(profileId!==id) return; profile=v; profileErr=!v; render(); }).catch(()=>{ profileErr=true; render(); });
+}
+function renderProfile(el){
+  const id=profileId, ind=profileDex?(comp.dex||[]).find(d=>d.id===profileDex):null, a=!profileDex?comp.active:null;
+  const rarity=ind?ind.rarity:(a?a.rarity:'common'), nature=ind?ind.nature:(a?a.nature:''), shiny=ind?ind.isShiny:(a?a.isShiny:false), prof=ind?ind.profile:(a?a.profile:null);
+  const chain=ind?ind.chain:(a?a.path.slice(0,a.stage+1):[id]);
+  let h=`<div class="hd" style="margin-top:12px"><span class="back" id="back">‹ Pokédex</span><b style="margin:0 auto;font-size:15px">#${id} ${esc(nameOf(id))}</b>${badge(rarName(rarity).toUpperCase(),RAR[rarity])}</div>
+    <div class="row" style="gap:14px;margin-top:12px;align-items:flex-start"><div class="hero" style="margin:0"><div class="pic${shiny?' shiny':''}" style="width:84px;height:84px">${spr(id,animated(),shiny)}</div></div>
+      <div style="flex:1;font-size:12px;color:#9a9a9a;line-height:1.5">${ind?(ind.releasedAt?T('Released'):T('Raised in')+' '+(ind.caughtAt&&ind.hatchedAt?Math.max(1,Math.round((ind.caughtAt-ind.hatchedAt)/86400e3))+' '+T('days'):'')):T('Raising')}${chain.length>1?' · '+chain.map(c=>esc(nameOf(c))).join(' › '):''}${profile?`<br>${T('Height')} ${(profile.details.height/10).toFixed(1)} m · ${T('Weight')} ${(profile.details.weight/10).toFixed(1)} kg`:''}
+      <div style="margin-top:8px"><button class="btn ${comp.representative===id?'blue':''}" id="pin">${comp.representative===id?T('Pinned on the pill'):T('Pin on the pill')}</button>${comp.representative?` <button class="btn ghost" id="unpin">${T('Follow the companion')}</button>`:''}</div></div></div>`;
+  h+=`<div class="box" style="margin-top:12px"><div class="sech" style="margin:0 0 8px">${T('Individual')}</div>`;
+  if(!profile){ h+=`<div class="empty">${profileErr?T('Details unavailable (offline?)'):T('Loading details…')}</div></div>`; }
+  else{
+    const g={male:'Male',female:'Female',genderless:'Genderless'};
+    const lvl=prof?prof.level:5, gender=prof&&prof.gender?T(g[prof.gender]||prof.gender):'—';
+    const ab=profile.details.abilities.find(x=>x.name===(prof&&prof.ability))||profile.details.abilities[0];
+    h+=`<div class="kv"><div><span>${T('Level')}</span><b>${lvl}</b></div><div><span>${T('Gender')}</span><b>${gender}</b></div><div><span>${T('Nature')}</span><b>${esc(natName(nature))}</b></div><div style="grid-column:span 3"><span>${T('Ability')}</span><b>${esc(moveName(ab?ab.name:'—'))}${ab&&ab.is_hidden?` <span style="color:#9a9a9a;font-weight:400">(${T('hidden')})</span>`:''}</b></div></div>`;
+    const SN={hp:'HP',attack:'Attack',defense:'Defense','special-attack':'Sp. Atk','special-defense':'Sp. Def',speed:'Speed'};
+    const mx=Math.max(300,...profile.stats.map(s=>s.value)); const top=Math.ceil(mx/100)*100;
+    h+=`<div class="sech">${T('Actual stats')}</div>`+profile.stats.map(s=>`<div class="stat"><span>${T(SN[s.name]||s.name)}</span><div class="t"><div style="width:${(s.value/top*100).toFixed(1)}%"></div></div><b style="text-align:right;color:#fff">${s.value}</b><span style="color:#9a9a9a;text-align:right">IV ${s.iv}</span></div>`).join('');
+    h+=`<div class="sech">${T('Known moves')}</div>`+(profile.moves.length?profile.moves.map(([m,l])=>`<div class="row" style="justify-content:space-between;font-size:12.5px;padding:3px 0"><span>${esc(moveName(m))}</span><span style="color:#9a9a9a">${T('Lv.')} ${l}</span></div>`).join(''):`<div class="muted">—</div>`);
+    h+=`</div>`;
+  }
+  el.innerHTML=h;
+  document.getElementById('back').addEventListener('click',()=>{profileId=null;profile=null;render();});
+  document.getElementById('pin').addEventListener('click',()=>act('representative',String(id),T('Pinned')));
+  const up=document.getElementById('unpin'); if(up) up.addEventListener('click',()=>act('representative','none',''));
+}
+
+/* ---- wiring ---- */
 let lastH=0;
 function report(){ requestAnimationFrame(()=>{ const h=Math.ceil(document.getElementById('panel').getBoundingClientRect().height)+2; if(Math.abs(h-lastH)>1){ lastH=h; invoke('consumo_height',{h}).catch(()=>{}); } }); }
 document.getElementById('prov').addEventListener('click',e=>{const s=e.target.closest('span'); if(s){prov=s.dataset.v; render();}});
@@ -205,10 +622,22 @@ document.getElementById('per').addEventListener('click',e=>{const s=e.target.clo
 document.getElementById('metric').addEventListener('click',e=>{const s=e.target.closest('span'); if(!s)return; metric=s.dataset.m; document.querySelectorAll('#metric span').forEach(x=>x.classList.toggle('on',x===s)); paintHeat();});
 const close=()=>invoke('close_consumo').catch(()=>{});
 document.getElementById('close').addEventListener('click',close);
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') close(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(profileId){profileId=null;render();} else close(); } });
 listen('codeburn',e=>{ if(e.payload){ cb=e.payload; render(); } }).catch(()=>{});
-listen('consumo_open',e=>{ if(e.payload){ prov=e.payload; render(); } }).catch(()=>{});
-buildHeat();
+listen('consumo_open',e=>{ const p=e.payload; if(!p) return; if(['companion','shop','bag','dex'].includes(p)){ setTab(p); } else { prov=p; setTab('uso'); } }).catch(()=>{});
+listen('companion',e=>{ if(e.payload){ comp=e.payload; if(tab!=='uso') render(); } }).catch(()=>{});
+listen('tokens',e=>{ if(e.payload){ tokens=e.payload; if(tab==='companion') render(); } }).catch(()=>{});
+listen('companion_prefs',e=>{ if(e.payload){ prefs=e.payload; render(); } }).catch(()=>{});
+listen('usage',e=>{ usage=e.payload||usage; if(tab==='companion') render(); }).catch(()=>{});
+listen('codex',e=>{ codexU=e.payload||codexU; if(tab==='companion') render(); }).catch(()=>{});
+listen('state',e=>{ const s=e.payload; if(!s) return; const l=s.lang_resolved==='pt'?'pt':'en'; clock24=!!s.clock_24h; if(l!==lang){ lang=l; buildHeat(); render(); } }).catch(()=>{});
+invoke('get_state').then(s=>{ if(s){ lang=s.lang_resolved==='pt'?'pt':'en'; clock24=!!s.clock_24h; } buildHeat(); render(); }).catch(()=>{ buildHeat(); render(); });
 invoke('get_codeburn').then(v=>{ if(v){ cb=v; } render(); }).catch(()=>render());
+invoke('get_companion').then(v=>{ if(v){ comp=v; render(); } }).catch(()=>{});
+invoke('get_tokens').then(v=>{ if(v){ tokens=v; render(); } }).catch(()=>{});
+invoke('get_companion_prefs').then(v=>{ if(v){ prefs=v; render(); } }).catch(()=>{});
+invoke('get_usage').then(u=>{ usage=u||usage; }).catch(()=>{});
+invoke('get_codex').then(u=>{ codexU=u||codexU; }).catch(()=>{});
+setInterval(()=>{ if(tab==='companion') render(); },30000);
 </script>
 </body></html>

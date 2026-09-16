@@ -253,6 +253,7 @@
     <div class="s-group first">Appearance</div>
     <button class="tab" id="tab-tray" role="tab" aria-controls="pane-tray" aria-selected="false" tabindex="-1">Taskbar icon</button>
     <button class="tab" id="tab-notch" role="tab" aria-controls="pane-notch" aria-selected="false" tabindex="-1">Notch</button>
+    <button class="tab" id="tab-companion" role="tab" aria-controls="pane-companion" aria-selected="false" tabindex="-1">Companion</button>
     <div class="s-group">General</div>
     <button class="tab" id="tab-behaviour" role="tab" aria-controls="pane-behaviour" aria-selected="false" tabindex="-1">Behaviour</button>
     <button class="tab" id="tab-hooks" role="tab" aria-controls="pane-hooks" aria-selected="false" tabindex="-1">Claude Code</button>
@@ -326,6 +327,88 @@
       </div>
     </section>
 
+
+    <!-- APPEARANCE / Companion ---------------------------------------------------------- -->
+    <section class="pane" id="pane-companion" role="tabpanel" aria-labelledby="tab-companion" tabindex="0" hidden>
+      <h1 class="p-title">Companion</h1>
+      <p class="p-lede">The Pokémon your tokens raise. Where it shows up, how it moves, and how fast it grows.</p>
+
+      <div class="block first">
+        <div class="b-head">On the pill</div>
+        <div class="b-sub">Three layouts. The cell is the default; the hero puts the sprite on top of the pill; none keeps the pill as it was and leaves the companion to the panel and the pet.</div>
+        <div class="modes" id="pill-modes">
+          <button class="mode" data-pm="cell">Cell<span class="mode-sub">sprite in an XP ring</span></button>
+          <button class="mode" data-pm="hero">Hero<span class="mode-sub">big, on top</span></button>
+          <button class="mode" data-pm="none">None<span class="mode-sub">pill unchanged</span></button>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="b-head">Floating pet</div>
+        <div class="row">
+          <div class="r-text">
+            <div class="r-name">Show the pet on the desktop</div>
+            <div class="r-why">A window of its own, always on top, that you can drag anywhere. Hover it for today's usage, click it to open the panel, right-click it for a menu.</div>
+          </div>
+          <div class="r-ctl"><button class="sw" id="sw-pet" role="switch" aria-checked="false" aria-label="Show the pet on the desktop"><span class="knob"></span></button></div>
+        </div>
+        <div class="row">
+          <div class="r-text">
+            <div class="r-name">Pet size</div>
+            <div class="r-why">From 48 to 384 pixels.</div>
+          </div>
+          <div class="r-ctl">
+            <select id="pet-size" aria-label="Pet size"><option value="48">48 px</option><option value="96">96 px</option><option value="128">128 px</option><option value="192">192 px</option><option value="256">256 px</option><option value="384">384 px</option></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="b-head">How it looks</div>
+        <div class="row">
+          <div class="r-text">
+            <div class="r-name">Representative Pokémon</div>
+            <div class="r-why">Pin any species you own to the pill and the pet, instead of following the one being raised. Pick it from a cell in the Pokédex; this only clears the choice.</div>
+            <div class="c-note dim" id="rep-note" style="margin-top:6px"></div>
+          </div>
+          <div class="r-ctl"><button class="btn" id="btn-rep">Follow the companion</button></div>
+        </div>
+        <div class="row">
+          <div class="r-text">
+            <div class="r-name">Animation</div>
+            <div class="r-why">Power saver keeps the sprites still. Balanced animates them while a session is working. Smooth animates them all the time, at a little CPU.</div>
+          </div>
+          <div class="r-ctl">
+            <select id="anim" aria-label="Animation"><option value="saver">Power saver</option><option value="balanced">Balanced</option><option value="smooth">Smooth</option></select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="r-text">
+            <div class="r-name">Limit display</div>
+            <div class="r-why">Whether the companion tab writes the official limits as used or as remaining.</div>
+          </div>
+          <div class="r-ctl">
+            <select id="limit-display" aria-label="Limit display"><option value="used">Used</option><option value="remaining">Remaining</option></select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="r-text">
+            <div class="r-name">Event bubbles</div>
+            <div class="r-why">A small bubble beside the pill and over the pet when the egg hatches, the Pokémon evolves or graduates, a shiny appears, or a full ring pays a Rare Candy.</div>
+          </div>
+          <div class="r-ctl"><button class="sw" id="sw-notif" role="switch" aria-checked="true" aria-label="Event bubbles"><span class="knob"></span></button></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="b-head">Difficulty</div>
+        <div class="b-sub">10% to 200% of the default balance. Lower grows faster and costs less; higher does the opposite. Changing growth keeps your current progress instead of triggering an evolution. Press Save to apply.</div>
+        <div class="c-scale" style="margin-top:12px"><span style="font-size:12px;width:90px">Growth</span><input id="diff-growth" type="range" min="0" max="100" step="1" value="50" aria-label="Growth difficulty"><span class="c-scale-val" id="diff-growth-val">100%</span></div>
+        <div class="c-scale" style="border-top:none;padding-top:4px"><span style="font-size:12px;width:90px">Shop prices</span><input id="diff-shop" type="range" min="0" max="100" step="1" value="50" aria-label="Shop price difficulty"><span class="c-scale-val" id="diff-shop-val">100%</span></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn" id="btn-diff">Save</button></div>
+      </div>
+    </section>
+
     <!-- GENERAL / Behaviour ---------------------------------------------------------------- -->
     <section class="pane" id="pane-behaviour" role="tabpanel" aria-labelledby="tab-behaviour" tabindex="0" hidden>
       <h1 class="p-title">Behaviour</h1>
@@ -377,6 +460,7 @@
               <option value="zh">&#20013;&#25991;</option>
               <option value="ja">&#26085;&#26412;&#35486;</option>
               <option value="ko">&#54620;&#44397;&#50612;</option>
+              <option value="pt">Português (Brasil)</option>
               <option value="ru">Русский</option>
             </select>
           </div>
@@ -540,12 +624,49 @@ const RU_STATIC = {
   'Notch size':'Размер панели', 'Codenotch':'Codenotch', 'Tray icon preview':'Предпросмотр значка', 'Codenotch logo':'Логотип Codenotch', 'Tray icon at':'Значок размером', 'pixels':'пикселей',
   'Down the right-hand edge':'У правого края', 'Down the left-hand edge':'У левого края', 'Top half':'Верхняя половина', 'Bottom half':'Нижняя половина', 'Column':'Столбец', 'Remove column':'Удалить столбец'
 };
+const PT_STATIC = {
+  'Settings sections':'Seções', 'Appearance':'Aparência', 'Taskbar icon':'Ícone da barra de tarefas', 'Notch':'Barra', 'General':'Geral', 'Behaviour':'Comportamento', 'Claude Code':'Claude Code', 'About':'Sobre', 'Companion':'Companheiro',
+  'The small icon down by the clock. Codenotch draws your usage straight into it — 32 pixels square. Pick a layout, then click a part of the picture to choose what that part shows.':'O ícone pequeno perto do relógio. O uso é desenhado direto nele, em 32 pixels. Escolha um layout e clique numa parte da imagem para definir o que ela mostra.',
+  'Layout':'Layout', 'What gets drawn into those 32 pixels.':'O que é desenhado nesses 32 pixels.', 'Actual size':'Tamanho real', 'This is how big it really is in the taskbar.':'É deste tamanho que ele aparece na barra de tarefas.',
+  'Windows picks one of these depending on the display. If a number is unreadable here, it will be unreadable in the taskbar.':'O Windows escolhe um destes conforme a tela. Se um número não dá para ler aqui, também não dará na barra de tarefas.',
+  'What each part shows':'O que cada parte mostra', 'Pick the tool; each part draws that tool\'s ring.':'Escolha a ferramenta; cada parte desenha o anel dela.',
+  'The small black pill that floats against the right-hand edge of the screen. Each tool you tick gets one ring on it.':'A barrinha preta que fica na borda direita da tela. Cada ferramenta marcada ganha um anel nela.',
+  'What appears on the pill':'O que aparece na barra', 'Click a name to switch its ring on or off.':'Clique num nome para ligar ou desligar o anel.', 'Size':'Tamanho',
+  'How big the pill is drawn. The same slider sits at the foot of the pill\'s hover card, so it can be changed from either place.':'O tamanho da barra. O mesmo controle fica no rodapé do card da barra, então dá para mudar dos dois lugares.',
+  'Whether the pill is on screen at all is a separate switch, under General → Behaviour.':'Se a barra aparece ou não é outra chave, em Geral → Comportamento.',
+  'When Codenotch runs, and what it puts on your screen.':'Quando o NotchMon roda e o que ele põe na tela.', 'Starting up':'Inicialização', 'Start with Windows':'Iniciar com o Windows',
+  'Codenotch opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Codenotch yourself.':'O NotchMon abre sozinho toda vez que você entra neste computador e espera em segundo plano até uma sessão começar. Desligue e você precisa abri-lo por conta própria.',
+  'What is on screen':'O que fica na tela', 'Show the notch':'Mostrar a barra', 'Show the taskbar icon':'Mostrar o ícone da barra de tarefas',
+  'Language':'Idioma', 'Words used by Codenotch':'Idioma do NotchMon', 'Follow system':'Como o sistema', 'Sets the language used by Codenotch. “Follow system” uses the language Windows itself is set to.':'Define o idioma do NotchMon. "Como o sistema" usa o idioma do próprio Windows.',
+  'Claude Code can tell Codenotch the moment something happens in a session, instead of Codenotch having to guess from files on disk.':'O Claude Code pode avisar o NotchMon no momento em que algo acontece numa sessão, em vez de ele adivinhar pelos arquivos em disco.',
+  'Session messages':'Mensagens de sessão', 'Let Claude Code notify Codenotch':'Deixar o Claude Code avisar o NotchMon',
+  'What this copy of Codenotch is, and where it keeps its files.':'O que é esta cópia do NotchMon e onde ela guarda os arquivos.', 'Version':'Versão', 'Files':'Arquivos', 'Data folder':'Pasta de dados', 'Open folder':'Abrir pasta', 'If something looks wrong':'Se algo parece errado', 'Put the notch back':'Trazer a barra de volta', 'Reset position':'Redefinir posição', 'Saved':'Salvo',
+  'Numbers':'Números', 'two readings':'duas leituras', 'Bars':'Barras', '1 to 5 columns':'1 a 5 colunas', 'Plain icon':'Ícone simples', 'just the logo':'só o logo', 'kept':'mantido', 'Showing':'Mostrando', 'Showing in':'Mostrando em',
+  'Notch reads':'A barra lê', 'Automatic':'Automático', '5-Hour Limit':'Limite de 5 horas', 'Weekly Limit':'Limite semanal', 'Gemini Models':'Modelos Gemini', 'Claude and GPT models':'Modelos Claude e GPT',
+  'One provider always stays ticked, so the pill is never empty.':'Um provedor sempre fica marcado, para a barra nunca ficar vazia.', 'At least one provider stays on the notch':'Pelo menos um provedor fica na barra', 'The notch is back in the middle':'A barra voltou para o meio',
+  'The pill can be dragged up and down the right-hand edge. If it has ended up somewhere you cannot see it — off the bottom of a screen you have unplugged, say — this drops it back into the middle of the edge.':'A barra pode ser arrastada pela borda direita. Se ela foi parar onde você não vê (num monitor desconectado, por exemplo), isto a traz de volta ao meio da borda.',
+  'Everything Codenotch remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in File Explorer.':'Tudo que o NotchMon lembra fica numa pasta: configurações, log, o save do companheiro, e a pasta "glyphs" para seus próprios ícones. Abre no Explorador.',
+  'Shows how much of your Claude, Codex, Cursor and Antigravity allowance you have used, in the taskbar icon and in a pill at the edge of the screen.':'Mostra quanto das suas cotas de Claude, Codex, Cursor e Antigravity você já usou, no ícone da barra de tarefas e numa barrinha na borda da tela.',
+  'The Pokémon your tokens raise. Where it shows up, how it moves, and how fast it grows.':'O Pokémon que seus tokens criam. Onde ele aparece, como se mexe e quão rápido cresce.',
+  'On the pill':'Na barra', 'Three layouts. The cell is the default; the hero puts the sprite on top of the pill; none keeps the pill as it was and leaves the companion to the panel and the pet.':'Três layouts. A célula é o padrão; o herói põe o sprite no topo da barra; nenhum deixa a barra como era e o companheiro fica no painel e no pet.',
+  'Cell':'Célula', 'sprite in an XP ring':'sprite num anel de XP', 'Hero':'Herói', 'big, on top':'grande, no topo', 'None':'Nenhum', 'pill unchanged':'barra como era',
+  'Floating pet':'Pet flutuante', 'Show the pet on the desktop':'Mostrar o pet na área de trabalho', 'A window of its own, always on top, that you can drag anywhere. Hover it for today\'s usage, click it to open the panel, right-click it for a menu.':'Uma janela própria, sempre por cima, que você arrasta para onde quiser. Passe o mouse para ver o uso de hoje, clique para abrir o painel, botão direito para o menu.',
+  'Pet size':'Tamanho do pet', 'From 48 to 384 pixels.':'De 48 a 384 pixels.', 'How it looks':'Aparência', 'Representative Pokémon':'Pokémon representativo',
+  'Pin any species you own to the pill and the pet, instead of following the one being raised. Pick it from a cell in the Pokédex; this only clears the choice.':'Fixe qualquer espécie que você tem na barra e no pet, em vez de seguir o que está sendo criado. Escolha numa célula da Pokédex; aqui só se desfaz a escolha.',
+  'Follow the companion':'Seguir o companheiro', 'Animation':'Animação', 'Power saver keeps the sprites still. Balanced animates them while a session is working. Smooth animates them all the time, at a little CPU.':'Econômica deixa os sprites parados. Equilibrada anima enquanto uma sessão trabalha. Suave anima o tempo todo, com um pouco de CPU.',
+  'Power saver':'Econômica', 'Balanced':'Equilibrada', 'Smooth':'Suave', 'Limit display':'Limite mostrado', 'Whether the companion tab writes the official limits as used or as remaining.':'Se a aba do companheiro escreve os limites oficiais como usado ou como restante.', 'Used':'Usado', 'Remaining':'Restante',
+  'Event bubbles':'Balões de eventos', 'A small bubble beside the pill and over the pet when the egg hatches, the Pokémon evolves or graduates, a shiny appears, or a full ring pays a Rare Candy.':'Um balão ao lado da barra e sobre o pet quando o ovo choca, o Pokémon evolui ou se forma, um shiny aparece, ou um anel cheio paga um Rare Candy.',
+  'Difficulty':'Dificuldade', '10% to 200% of the default balance. Lower grows faster and costs less; higher does the opposite. Changing growth keeps your current progress instead of triggering an evolution. Press Save to apply.':'De 10% a 200% do balanço padrão. Menor cresce mais rápido e custa menos; maior, o contrário. Mudar o crescimento preserva o progresso atual em vez de forçar uma evolução. Aperte Salvar para aplicar.',
+  'Growth':'Crescimento', 'Shop prices':'Preços da loja', 'Save':'Salvar', 'Pinned:':'Fixado:', 'Following the companion':'Seguindo o companheiro',
+  'Tray icon preview':'Prévia do ícone', 'Down the right-hand edge':'Na borda direita', 'Down the left-hand edge':'Na borda esquerda', 'Top half':'Metade de cima', 'Bottom half':'Metade de baixo', 'Column':'Coluna', 'Remove column':'Remover coluna', 'Add column':'Adicionar coluna', 'Remove this column':'Remover esta coluna', 'Open the notch for a moment':'Abrir a barra por um momento', 'Notch size':'Tamanho da barra'
+};
 const STATUS_TEXT = {
   en:{ ok:'', stale:'last reading is old', needsAuth:'not signed in', absent:'not installed', none:'nothing to report', error:'not reachable' },
-  ru:{ ok:'', stale:'данные устарели', needsAuth:'не выполнен вход', absent:'не установлен', none:'нет данных', error:'недоступен' }
+  ru:{ ok:'', stale:'данные устарели', needsAuth:'не выполнен вход', absent:'не установлен', none:'нет данных', error:'недоступен' },
+  pt:{ ok:'', stale:'leitura antiga', needsAuth:'sem login', absent:'não instalado', none:'nada a mostrar', error:'inacessível' }
 };
 let uiLang = 'en';
-function ui(key, fallback){ return uiLang === 'ru' ? (RU_STATIC[key] || fallback) : fallback; }
+function ui(key, fallback){ return uiLang === 'ru' ? (RU_STATIC[key] || fallback) : uiLang === 'pt' ? (PT_STATIC[key] || fallback) : fallback; }
 function applyStaticUi(){
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const nodes = [];
@@ -556,7 +677,7 @@ function applyStaticUi(){
     const raw = node.__enText;
     const key = raw.trim();
     if(!key) continue;
-    const translated = uiLang === 'ru' ? RU_STATIC[key] : null;
+    const translated = uiLang === 'ru' ? RU_STATIC[key] : uiLang === 'pt' ? PT_STATIC[key] : null;
     node.nodeValue = raw.replace(key, translated || key);
   }
   for(const el of document.querySelectorAll('[aria-label],[title],[alt]')){
@@ -565,14 +686,15 @@ function applyStaticUi(){
       const marker = '__en_' + attr.replace('-', '_');
       if(el[marker] === undefined) el[marker] = el.getAttribute(attr);
       const original = el[marker];
-      el.setAttribute(attr, uiLang === 'ru' ? (RU_STATIC[original] || original) : original);
+      el.setAttribute(attr, uiLang === 'ru' ? (RU_STATIC[original] || original) : uiLang === 'pt' ? (PT_STATIC[original] || original) : original);
     }
   }
 }
 function setUiLanguage(lang){
-  uiLang = lang === 'ru' || (lang === 'auto' && /^ru(?:-|$)/i.test(navigator.language || '')) ? 'ru' : 'en';
+  uiLang = lang === 'ru' || (lang === 'auto' && /^ru(?:-|$)/i.test(navigator.language || '')) ? 'ru' : (lang === 'pt' || (lang === 'auto' && /^pt(?:-|$)/i.test(navigator.language || ''))) ? 'pt' : 'en';
   applyStaticUi();
   render();
+  if(typeof renderCompanionPane === 'function') renderCompanionPane();
 }
 function setUiLanguageFromRaw(raw){
   if(raw !== 'auto'){
@@ -612,7 +734,7 @@ function toast(msg){
    One pane visible at a time. The chosen tab is remembered in localStorage, so reopening the
    window comes back to where the user was. localStorage can throw in a locked-down WebView, so
    both the read and the write are wrapped. */
-const TABS = ['tray', 'notch', 'behaviour', 'hooks', 'about'];
+const TABS = ['tray', 'notch', 'companion', 'behaviour', 'hooks', 'about'];
 const TAB_KEY = 'codenotch.settings.tab';
 let curTab = TABS[0];
 
@@ -1216,7 +1338,7 @@ const autoSwitch = remoteSwitch('sw-autostart', 'get_autostart', 'set_autostart'
 const hooksSwitch = remoteSwitch('sw-hooks', 'get_hooks_installed', 'set_hooks_installed', 'The Claude Code messages');
 
 /* ---- language ----------------------------------------------------------- */
-const LANGS = ['auto', 'en', 'zh', 'ja', 'ko', 'ru'];
+const LANGS = ['auto', 'en', 'zh', 'ja', 'ko', 'ru', 'pt'];
 document.getElementById('lang').addEventListener('change', e => {
   const previous = e.target.dataset.previous || 'auto';
   const v = LANGS.indexOf(e.target.value) >= 0 ? e.target.value : 'auto';
@@ -1254,6 +1376,62 @@ document.getElementById('btn-resetpos').addEventListener('click', () => {
 })();
 
 /* ---- start ------------------------------------------------------------- */
+
+/* ---- companion pane --------------------------------------------------------
+   One preference object, saved whole: set_companion_prefs answers with what was stored and every
+   window redraws from that. Difficulty goes through the engine (companion_action) so a change
+   rescales progress instead of evolving something. */
+let cprefs = { pillMode:'cell', pet:false, petSize:96, animation:'balanced', limitDisplay:'used', notifications:true, traySprite:false };
+let cview = null;
+const DIFF_LO = 0.1, DIFF_HI = 2.0;
+function diffFromPos(p){ const v = DIFF_LO * Math.pow(DIFF_HI / DIFF_LO, Math.max(0, Math.min(1, p / 100))); if(Math.abs(p - diffPos(1)) < 1.5) return 1; const mag = Math.pow(10, Math.floor(Math.log10(v)) - 1); return Math.round(v / mag) * mag; }
+function diffPos(v){ return Math.round(100 * Math.log(v / DIFF_LO) / Math.log(DIFF_HI / DIFF_LO)); }
+function renderCompanionPane(){
+  document.querySelectorAll('#pill-modes .mode').forEach(b => b.classList.toggle('on', b.dataset.pm === cprefs.pillMode));
+  setSwitch('sw-pet', !!cprefs.pet, false);
+  setSwitch('sw-notif', !!cprefs.notifications, false);
+  const ps = document.getElementById('pet-size'); if(ps) ps.value = String(cprefs.petSize);
+  const an = document.getElementById('anim'); if(an) an.value = cprefs.animation;
+  const ld = document.getElementById('limit-display'); if(ld) ld.value = cprefs.limitDisplay;
+  const note = document.getElementById('rep-note');
+  if(note) note.textContent = cview && cview.representative ? ui('Pinned:', 'Pinned:') + ' #' + cview.representative : ui('Following the companion', 'Following the companion');
+  const bt = document.getElementById('btn-rep'); if(bt) bt.disabled = !(cview && cview.representative);
+  if(cview && !diffDragging){
+    const g = document.getElementById('diff-growth'), sh = document.getElementById('diff-shop');
+    g.value = String(diffPos(cview.growthDifficulty)); sh.value = String(diffPos(cview.shopDifficulty));
+    document.getElementById('diff-growth-val').textContent = Math.round(cview.growthDifficulty * 100) + '%';
+    document.getElementById('diff-shop-val').textContent = Math.round(cview.shopDifficulty * 100) + '%';
+  }
+}
+function saveCprefs(next){
+  const prev = cprefs; cprefs = Object.assign({}, cprefs, next); renderCompanionPane();
+  invoke('set_companion_prefs', { prefs: cprefs })
+    .then(p => { if(p && typeof p === 'object') cprefs = p; renderCompanionPane(); toast(ui('Saved', 'Saved')); })
+    .catch(e => { cprefs = prev; renderCompanionPane(); strip('set_companion_prefs failed: ' + errText(e)); });
+}
+document.getElementById('pill-modes').addEventListener('click', e => { const b = e.target.closest('[data-pm]'); if(b) saveCprefs({ pillMode: b.dataset.pm }); });
+document.getElementById('sw-pet').addEventListener('click', () => saveCprefs({ pet: !cprefs.pet }));
+document.getElementById('sw-notif').addEventListener('click', () => saveCprefs({ notifications: !cprefs.notifications }));
+document.getElementById('pet-size').addEventListener('change', e => saveCprefs({ petSize: Number(e.target.value) }));
+document.getElementById('anim').addEventListener('change', e => saveCprefs({ animation: e.target.value }));
+document.getElementById('limit-display').addEventListener('change', e => saveCprefs({ limitDisplay: e.target.value }));
+document.getElementById('btn-rep').addEventListener('click', () => {
+  invoke('companion_action', { action:'representative', arg:'none' }).then(v => { cview = v; renderCompanionPane(); toast(ui('Saved', 'Saved')); }).catch(e => strip('companion_action failed: ' + errText(e)));
+});
+let diffDragging = false;
+for(const id of ['diff-growth', 'diff-shop']){
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => { diffDragging = true; document.getElementById(id + '-val').textContent = Math.round(diffFromPos(Number(el.value)) * 100) + '%'; });
+}
+document.getElementById('btn-diff').addEventListener('click', () => {
+  const g = diffFromPos(Number(document.getElementById('diff-growth').value)), sh = diffFromPos(Number(document.getElementById('diff-shop').value));
+  diffDragging = false;
+  invoke('companion_action', { action:'difficulty', arg: g + ',' + sh }).then(v => { cview = v; renderCompanionPane(); toast(ui('Saved', 'Saved')); }).catch(e => strip('companion_action failed: ' + errText(e)));
+});
+call('get_companion_prefs', undefined, null).then(p => { if(p && typeof p === 'object') cprefs = p; renderCompanionPane(); });
+call('get_companion', undefined, null).then(v => { if(v) cview = v; renderCompanionPane(); });
+if(BRIDGE){ window.__TAURI__.event.listen('companion', e => { if(e.payload){ cview = e.payload; renderCompanionPane(); } }).catch(() => {}); }
+
 function boot(){
   setUiLanguage('auto');
   showTab(savedTab());

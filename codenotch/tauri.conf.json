@@ -39,6 +39,21 @@
         "visible": false
       },
       {
+        "label": "pet",
+        "title": "NotchMon Pet",
+        "url": "pet.html",
+        "width": 220,
+        "height": 192,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": false,
+        "visible": false,
+        "focus": false
+      },
+      {
         "label": "settings",
         "title": "Codenotch Settings",
         "url": "settings.html",

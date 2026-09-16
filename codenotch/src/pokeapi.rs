@@ -531,6 +531,28 @@ impl Provider for Client {
 mod tests {
     use super::*;
 
+    /// Talks to pokeapi.co and the sprite repo; run by hand: cargo test -p codenotch live_pokeapi -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn live_pokeapi() {
+        let c = Client::new();
+        let line = c.line(131).expect("lapras line");
+        assert_eq!(line.rarity, Rarity::Rare);
+        assert_eq!(line.name(131, "pt"), "Lapras");
+        let idx = c.base_index().expect("base index");
+        assert!(idx.len() > 300, "{} bases", idx.len());
+        assert!(!idx.iter().any(|b| b.id == DITTO));
+        let d = c.details(131).expect("details");
+        assert_eq!(d.stats["hp"], 130);
+        assert!(d.moves.iter().any(|m| m.name == "ice-beam"));
+        assert!(c.sprite(131, true, false).is_some());
+        assert!(c.sprite(131, false, true).is_some());
+        assert!(c.asset("rare-candy").is_some());
+        let eevee = c.line(133).expect("eevee");
+        assert!(eevee.tree.children.len() >= 5, "branches kept");
+        println!("live ok: {} bases, eevee {} branches, lapras moves {}", idx.len(), eevee.tree.children.len(), d.moves.len());
+    }
+
     #[test]
     fn base64_matches_the_standard() {
         assert_eq!(base64(b"Man"), "TWFu");

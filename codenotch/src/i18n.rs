@@ -98,6 +98,22 @@ pub fn tr(lang: &str, key: &str) -> &'static str {
         ("ja", "open_data") => "データフォルダを開く（ログ / アイコン）",
         ("ko", "open_data") => "데이터 폴더 열기 (로그 / 아이콘)",
         ("ru", "open_data") => "Открыть папку данных (журналы / значки)",
+        ("pt", "settings") => "Configurações…",
+        ("pt", "refresh") => "Atualizar uso agora",
+        ("pt", "quit") => "Sair",
+        ("pt", "open_data") => "Abrir pasta de dados (logs / ícones)",
+        ("pt", "install") => "Instalar hooks do Claude Code",
+        ("pt", "uninstall") => "Remover hooks",
+        ("pt", "language") => "Idioma",
+        ("pt", "lang_auto") => "Como o sistema",
+        ("pt", "reset_pos") => "Redefinir posição da barra",
+        ("pt", "hooks_missing") => "Hooks não instalados: clique direito na bandeja → Instalar hooks do Claude Code (o app de desktop usa o modo automático)",
+        ("pt", "autostart") => "Iniciar com o Windows (em segundo plano)",
+        ("pt", "tray_icon") => "Ícone da bandeja",
+        ("pt", "tray_off") => "Ícone simples",
+        ("pt", "tray_numbers") => "Números (até 2)",
+        ("pt", "tray_bars") => "Barras (mais de 2)",
+        ("pt", "tray_which") => "Quais provedores",
         (_, "open_data") => "Open data folder (logs / icons)",
         ("ja", "refresh") => "使用量を今すぐ更新",
         ("ko", "refresh") => "사용량 지금 새로고침",
@@ -205,6 +221,13 @@ mod tests {
                 "missing Russian translation for {key}"
             );
             assert_ne!(tr("ru", key), "?", "unknown Russian key {key}");
+        }
+    }
+
+    #[test]
+    fn portuguese_translates_the_tray_menu() {
+        for key in ["settings", "refresh", "quit", "language", "lang_auto"] {
+            assert_ne!(tr("pt", key), tr("en", key), "missing Portuguese for {key}");
         }
     }
 

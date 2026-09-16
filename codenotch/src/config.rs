@@ -13,6 +13,50 @@ pub struct TraySlot {
     pub provider: String,
 }
 
+/// How the companion shows up outside the panel
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CompanionPrefs {
+    /// "cell" (a cell with the XP ring, the default), "hero" (big sprite on top of the pill), "none"
+    pub pill_mode: String,
+    /// the floating pet window
+    pub pet: bool,
+    /// 48-384 logical px
+    pub pet_size: u32,
+    pub pet_x: Option<i32>,
+    pub pet_y: Option<i32>,
+    /// "saver" (static sprites), "balanced" (animated at rest), "smooth" (always animated)
+    pub animation: String,
+    /// "used" | "remaining"
+    pub limit_display: String,
+    /// bubbles on hatch, evolution, graduation, shiny and candy
+    pub notifications: bool,
+    /// the taskbar icon draws the sprite instead of the numbers
+    pub tray_sprite: bool,
+}
+
+impl Default for CompanionPrefs {
+    fn default() -> Self {
+        CompanionPrefs { pill_mode: "cell".into(), pet: false, pet_size: 96, pet_x: None, pet_y: None, animation: "balanced".into(), limit_display: "used".into(), notifications: true, tray_sprite: false }
+    }
+}
+
+impl CompanionPrefs {
+    pub fn sanitized(mut self) -> Self {
+        if !["cell", "hero", "none"].contains(&self.pill_mode.as_str()) {
+            self.pill_mode = "cell".into();
+        }
+        if !["saver", "balanced", "smooth"].contains(&self.animation.as_str()) {
+            self.animation = "balanced".into();
+        }
+        if !["used", "remaining"].contains(&self.limit_display.as_str()) {
+            self.limit_display = "used".into();
+        }
+        self.pet_size = self.pet_size.clamp(48, 384);
+        self
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default = "default_port")]
@@ -79,6 +123,9 @@ pub struct Config {
     /// Which window the Claude and Codex rings read: "session" (the 5-hour one, as upstream) or "weekly"
     #[serde(default = "default_ring_reads")]
     pub ring_reads: String,
+    /// The companion's surfaces (pill cell, floating pet, animation, bubbles)
+    #[serde(default)]
+    pub companion: CompanionPrefs,
 }
 
 fn default_ring_reads() -> String {
@@ -139,6 +186,7 @@ impl Default for Config {
             tray_visible: true,
             claude_names: Default::default(),
             ring_reads: default_ring_reads(),
+            companion: CompanionPrefs::default(),
         }
     }
 }
@@ -198,6 +246,7 @@ pub fn load() -> Config {
 
     // A hand-edited file must not be able to produce an invisible window
     cfg.scale = cfg.scale.clamp(SCALE_MIN, SCALE_MAX);
+    cfg.companion = cfg.companion.clone().sanitized();
     cfg
 }
 
