@@ -1,4 +1,4 @@
-//! codenotch-hook: the minimal client Claude Code's hooks call.
+//! notchmon-hook: the minimal client Claude Code's hooks call.
 //! Duties: 1) report the event plus stdin JSON to the main app; 2) launch the main app if it is not running.
 //! Iron rule: never block Claude Code — ~2 s total budget, and every failure exits 0 silently.
 
@@ -33,13 +33,10 @@ fn main() {
     // Give up quietly — never affect Claude Code
 }
 
-/// Pulls "port": N out of %APPDATA%\codenotch\config.json (hand-rolled scan, no dependency)
+/// Pulls "port": N out of %APPDATA%\notchmon\config.json, or the older codenotch folder (hand-rolled scan, no dependency)
 fn read_port() -> u16 {
-    let path = match std::env::var("APPDATA") {
-        Ok(a) => format!("{a}\\codenotch\\config.json"),
-        Err(_) => return DEFAULT_PORT,
-    };
-    let Ok(txt) = std::fs::read_to_string(path) else {
+    let Ok(a) = std::env::var("APPDATA") else { return DEFAULT_PORT };
+    let Some(txt) = [format!("{a}\\notchmon\\config.json"), format!("{a}\\codenotch\\config.json")].iter().find_map(|p| std::fs::read_to_string(p).ok()) else {
         return DEFAULT_PORT;
     };
     if let Some(i) = txt.find("\"port\"") {
@@ -77,7 +74,7 @@ fn send(port: u16, event: &str, ppid: u32, body: &str) -> std::io::Result<()> {
 fn spawn_main() {
     let Ok(me) = std::env::current_exe() else { return };
     let Some(dir) = me.parent() else { return };
-    let exe = dir.join("codenotch.exe");
+    let exe = dir.join("notchmon.exe");
     if !exe.exists() {
         return;
     }

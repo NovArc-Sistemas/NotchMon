@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Codenotch Settings</title>
+<title>NotchMon Settings</title>
 <style>
   /* Same visual language as notch.html: near-black panels, #1e1e1e rules, Segoe UI, muted greys.
      The only saturated colours are the three usage bands the tray icon itself draws
@@ -267,7 +267,7 @@
     <!-- APPEARANCE / Taskbar icon ------------------------------------------------------- -->
     <section class="pane" id="pane-tray" role="tabpanel" aria-labelledby="tab-tray" tabindex="0" hidden>
       <h1 class="p-title">Taskbar icon</h1>
-      <p class="p-lede">The small icon down by the clock. Codenotch draws your usage straight into it — 32 pixels square. Pick a layout, then click a part of the picture to choose what that part shows.</p>
+      <p class="p-lede">The small icon down by the clock. NotchMon draws your usage straight into it — 32 pixels square. Pick a layout, then click a part of the picture to choose what that part shows.</p>
 
       <div class="block first">
         <div class="b-head">Layout</div>
@@ -278,8 +278,8 @@
           <div id="canvas">
             <img id="pv" alt="Tray icon preview">
             <div id="ph">
-              <div class="ph-mark"><img data-logo src="tray.png" alt="Codenotch"></div>
-              <div class="c-note dim">The plain Codenotch logo is used.<br>No numbers are drawn.</div>
+              <div class="ph-mark"><img data-logo src="tray.png" alt="NotchMon"></div>
+              <div class="c-note dim">The plain NotchMon logo is used.<br>No numbers are drawn.</div>
             </div>
             <div id="regions"></div>
           </div>
@@ -393,6 +393,13 @@
         </div>
         <div class="row">
           <div class="r-text">
+            <div class="r-name">Sprite in the taskbar icon</div>
+            <div class="r-why">The taskbar icon shows the companion instead of the numbers or bars chosen under Taskbar icon.</div>
+          </div>
+          <div class="r-ctl"><button class="sw" id="sw-tray-sprite" role="switch" aria-checked="false" aria-label="Sprite in the taskbar icon"><span class="knob"></span></button></div>
+        </div>
+        <div class="row">
+          <div class="r-text">
             <div class="r-name">Event bubbles</div>
             <div class="r-why">A small bubble beside the pill and over the pet when the egg hatches, the Pokémon evolves or graduates, a shiny appears, or a full ring pays a Rare Candy.</div>
           </div>
@@ -412,14 +419,14 @@
     <!-- GENERAL / Behaviour ---------------------------------------------------------------- -->
     <section class="pane" id="pane-behaviour" role="tabpanel" aria-labelledby="tab-behaviour" tabindex="0" hidden>
       <h1 class="p-title">Behaviour</h1>
-      <p class="p-lede">When Codenotch runs, and what it puts on your screen.</p>
+      <p class="p-lede">When NotchMon runs, and what it puts on your screen.</p>
 
       <div class="block first">
         <div class="b-head">Starting up</div>
         <div class="row">
           <div class="r-text">
             <div class="r-name">Start with Windows</div>
-            <div class="r-why">Codenotch opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Codenotch yourself.</div>
+            <div class="r-why">NotchMon opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open NotchMon yourself.</div>
           </div>
           <div class="r-ctl"><button class="sw" id="sw-autostart" role="switch" aria-checked="false" aria-label="Start with Windows"><span class="knob"></span></button></div>
         </div>
@@ -431,15 +438,15 @@
         <div class="row">
           <div class="r-text">
             <div class="r-name">Show the notch</div>
-            <div class="r-why">The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Codenotch keeps counting your usage either way.</div>
+            <div class="r-why">The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; NotchMon keeps counting your usage either way.</div>
           </div>
           <div class="r-ctl"><button class="sw" id="sw-notch" role="switch" aria-checked="true" aria-label="Show the notch"><span class="knob"></span></button></div>
         </div>
         <div class="row">
           <div class="r-text">
             <div class="r-name">Show the taskbar icon</div>
-            <div class="r-why">The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Codenotch.</div>
-            <div class="c-note dim" id="tray-lock" style="margin-top:6px" hidden>Held on: the notch is hidden, so this icon is the only way left to reach Codenotch. Switch the notch back on first if you want to hide it.</div>
+            <div class="r-why">The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits NotchMon.</div>
+            <div class="c-note dim" id="tray-lock" style="margin-top:6px" hidden>Held on: the notch is hidden, so this icon is the only way left to reach NotchMon. Switch the notch back on first if you want to hide it.</div>
           </div>
           <div class="r-ctl"><button class="sw" id="sw-tray" role="switch" aria-checked="true" aria-label="Show the taskbar icon"><span class="knob"></span></button></div>
         </div>
@@ -450,8 +457,8 @@
         <div class="b-head">Language</div>
         <div class="row">
           <div class="r-text">
-            <div class="r-name">Words used by Codenotch</div>
-            <div class="r-why">Sets the language used by Codenotch. “Follow system” uses the language Windows itself is set to.</div>
+            <div class="r-name">Words used by NotchMon</div>
+            <div class="r-why">Sets the language used by NotchMon. “Follow system” uses the language Windows itself is set to.</div>
           </div>
           <div class="r-ctl">
             <select id="lang" aria-label="Language">
@@ -471,16 +478,16 @@
     <!-- GENERAL / Claude Code -------------------------------------------------------------- -->
     <section class="pane" id="pane-hooks" role="tabpanel" aria-labelledby="tab-hooks" tabindex="0" hidden>
       <h1 class="p-title">Claude Code</h1>
-      <p class="p-lede">Claude Code can tell Codenotch the moment something happens in a session, instead of Codenotch having to guess from files on disk.</p>
+      <p class="p-lede">Claude Code can tell NotchMon the moment something happens in a session, instead of NotchMon having to guess from files on disk.</p>
 
       <div class="block first">
         <div class="b-head">Session messages</div>
         <div class="row">
           <div class="r-text">
-            <div class="r-name">Let Claude Code notify Codenotch</div>
-            <div class="r-why">Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Codenotch a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.</div>
+            <div class="r-name">Let Claude Code notify NotchMon</div>
+            <div class="r-why">Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends NotchMon a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.</div>
           </div>
-          <div class="r-ctl"><button class="sw" id="sw-hooks" role="switch" aria-checked="false" aria-label="Let Claude Code notify Codenotch"><span class="knob"></span></button></div>
+          <div class="r-ctl"><button class="sw" id="sw-hooks" role="switch" aria-checked="false" aria-label="Let Claude Code notify NotchMon"><span class="knob"></span></button></div>
         </div>
         <div class="c-note dim" style="margin-top:10px">
           The file being changed is <span style="user-select:text">.claude\settings.json</span> in your user folder. A dated copy of it is saved before anything is written, and turning this switch off takes the lines out again. Any hooks you added yourself are left alone.
@@ -491,14 +498,14 @@
     <!-- GENERAL / About ---------------------------------------------------------------------- -->
     <section class="pane" id="pane-about" role="tabpanel" aria-labelledby="tab-about" tabindex="0" hidden>
       <h1 class="p-title">About</h1>
-      <p class="p-lede">What this copy of Codenotch is, and where it keeps its files.</p>
+      <p class="p-lede">What this copy of NotchMon is, and where it keeps its files.</p>
 
       <div class="block first">
         <div class="about-top">
-          <img class="about-mark" data-logo src="tray.png" alt="Codenotch">
+          <img class="about-mark" data-logo src="tray.png" alt="NotchMon">
           <div>
-            <div class="about-name">Codenotch</div>
-            <div class="about-ver">Version <span id="about-version">0.3.0</span></div>
+            <div class="about-name">NotchMon</div>
+            <div class="about-ver">Version <span id="about-version">1.0.0</span></div>
           </div>
         </div>
         <div class="c-note dim" style="margin-top:10px">Shows how much of your Claude, Codex, Cursor and Antigravity allowance you have used, in the taskbar icon and in a pill at the edge of the screen.</div>
@@ -509,8 +516,8 @@
         <div class="row">
           <div class="r-text">
             <div class="r-name">Data folder</div>
-            <div class="r-why">Everything Codenotch remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in File Explorer.</div>
-            <div class="path">%APPDATA%\codenotch</div>
+            <div class="r-why">Everything NotchMon remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in File Explorer.</div>
+            <div class="path">%APPDATA%\notchmon</div>
           </div>
           <div class="r-ctl"><button class="btn" id="btn-data">Open folder</button></div>
         </div>
@@ -533,7 +540,7 @@
 
 <script>
 /* ---------------------------------------------------------------------------
-   Codenotch settings.
+   NotchMon settings.
 
    Layout: a fixed list of tabs on the left, one pane visible at a time on the
    right. The panes all exist in the DOM at once and are only hidden, so every
@@ -574,9 +581,9 @@ const FALLBACK_LABEL = { claude:'Claude', codex:'Codex', cursor:'Cursor', gemini
 const RU_STATIC = {
   'Settings sections':'Разделы настроек', 'Appearance':'Внешний вид', 'Taskbar icon':'Значок в панели задач',
   'Notch':'Панель', 'General':'Общие', 'Behaviour':'Поведение', 'Claude Code':'Claude Code', 'About':'О программе',
-  'The small icon down by the clock. Codenotch draws your usage straight into it — 32 pixels square. Pick a layout, then click a part of the picture to choose what that part shows.':'Небольшой значок рядом с часами. Codenotch показывает в нём использование — 32 пикселя. Выберите макет и нажмите на часть изображения, чтобы настроить её.',
+  'The small icon down by the clock. NotchMon draws your usage straight into it — 32 pixels square. Pick a layout, then click a part of the picture to choose what that part shows.':'Небольшой значок рядом с часами. NotchMon показывает в нём использование — 32 пикселя. Выберите макет и нажмите на часть изображения, чтобы настроить её.',
   'Layout':'Макет', 'What gets drawn into those 32 pixels.':'Что отображается в этих 32 пикселях.',
-  'The plain Codenotch logo is used.':'Используется обычный логотип Codenotch.', 'No numbers are drawn.':'Числа не отображаются.',
+  'The plain NotchMon logo is used.':'Используется обычный логотип NotchMon.', 'No numbers are drawn.':'Числа не отображаются.',
   'Actual size':'Фактический размер', 'This is how big it really is in the taskbar.':'Такой размер значок имеет в панели задач.',
   'Windows picks one of these depending on the display. If a number is unreadable here, it will be unreadable in the taskbar.':'Windows выбирает один из вариантов в зависимости от масштаба экрана. Если число не читается здесь, в панели задач оно тоже не будет читаться.',
   'What each part shows':'Что показывает каждая часть', 'Pick the tool; each part draws that tool\'s ring.':'Выберите инструмент: каждая часть показывает его кольцо.',
@@ -584,14 +591,14 @@ const RU_STATIC = {
   'What appears on the pill':'Что отображается на панели', 'Click a name to switch its ring on or off.':'Нажмите на название, чтобы включить или выключить кольцо.',
   'Size':'Размер', 'How big the pill is drawn. The same slider sits at the foot of the pill\'s hover card, so it can be changed from either place.':'Размер панели. Такой же ползунок находится внизу карточки при наведении на панель.',
   'Whether the pill is on screen at all is a separate switch, under General → Behaviour.':'Видимость панели переключается отдельно в разделе «Общие → Поведение».',
-  'When Codenotch runs, and what it puts on your screen.':'Когда запускается Codenotch и что он показывает на экране.',
+  'When NotchMon runs, and what it puts on your screen.':'Когда запускается NotchMon и что он показывает на экране.',
   'Starting up':'Запуск', 'Start with Windows':'Запускать вместе с Windows',
-  'Codenotch opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Codenotch yourself.':'Codenotch запускается при входе в систему и тихо работает в фоне до начала сеанса разработки. Если выключить эту настройку, Codenotch нужно запускать вручную.',
+  'NotchMon opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open NotchMon yourself.':'NotchMon запускается при входе в систему и тихо работает в фоне до начала сеанса разработки. Если выключить эту настройку, NotchMon нужно запускать вручную.',
   'What is on screen':'Что отображается на экране', 'Show the notch':'Показывать панель', 'Show the taskbar icon':'Показывать значок в панели задач',
-  'Language':'Язык', 'Words used by Codenotch':'Язык Codenotch', 'Follow system':'Как в системе', 'English':'English', 'Русский':'Русский',
-  'Claude Code can tell Codenotch the moment something happens in a session, instead of Codenotch having to guess from files on disk.':'Claude Code может сразу сообщать Codenotch о событиях сеанса, вместо того чтобы Codenotch угадывал их по файлам на диске.',
-  'Session messages':'Сообщения сеанса', 'Let Claude Code notify Codenotch':'Разрешить Claude Code уведомлять Codenotch',
-  'What this copy of Codenotch is, and where it keeps its files.':'Что это за копия Codenotch и где хранятся её файлы.', 'Version':'Версия',
+  'Language':'Язык', 'Words used by NotchMon':'Язык NotchMon', 'Follow system':'Как в системе', 'English':'English', 'Русский':'Русский',
+  'Claude Code can tell NotchMon the moment something happens in a session, instead of NotchMon having to guess from files on disk.':'Claude Code может сразу сообщать NotchMon о событиях сеанса, вместо того чтобы NotchMon угадывал их по файлам на диске.',
+  'Session messages':'Сообщения сеанса', 'Let Claude Code notify NotchMon':'Разрешить Claude Code уведомлять NotchMon',
+  'What this copy of NotchMon is, and where it keeps its files.':'Что это за копия NotchMon и где хранятся её файлы.', 'Version':'Версия',
   'Files':'Файлы', 'Data folder':'Папка данных', 'Open folder':'Открыть папку', 'If something looks wrong':'Если что-то работает неправильно',
   'Put the notch back':'Вернуть панель', 'Reset position':'Сбросить положение', 'Saved':'Сохранено',
   'Numbers':'Числа', 'two readings':'два показания', 'Bars':'Полосы', '1 to 5 columns':'от 1 до 5 столбцов', 'Plain icon':'Обычный значок', 'just the logo':'только логотип',
@@ -600,33 +607,33 @@ const RU_STATIC = {
   'Gemini Models':'Модели Gemini', 'Claude and GPT models':'Модели Claude и GPT',
   '"%@" is no longer available':'«%@» больше недоступен', '%@ — that slot now shows another provider.':'%@ — теперь слот показывает другого провайдера.',
   'One provider always stays ticked, so the pill is never empty.':'Хотя бы один провайдер всегда выбран, поэтому панель не бывает пустой.',
-  'The taskbar icon shows the plain Codenotch logo.':'Значок в панели задач показывает обычный логотип Codenotch.',
+  'The taskbar icon shows the plain NotchMon logo.':'Значок в панели задач показывает обычный логотип NotchMon.',
   'Choose Numbers or Bars above to draw your usage into it.':'Выберите выше «Числа» или «Полосы», чтобы показывать в нём использование.',
   'What is on screen':'Что отображается на экране', 'Show the notch':'Показывать панель', 'Show the taskbar icon':'Показывать значок в панели задач',
   'Open the notch for a moment':'Ненадолго открыть панель', 'At least one provider stays on the notch':'На панели должен остаться хотя бы один провайдер',
   'The notch is back in the middle':'Панель возвращена в центр', 'Remove this column':'Удалить этот столбец', 'Add column':'Добавить столбец',
-  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Codenotch, so Codenotch will not let both of them be switched off at the same time.':'Значок в панели задач оставлен включённым. При скрытой панели это единственный способ открыть окно или завершить работу Codenotch, поэтому оба элемента нельзя выключить одновременно.',
-  'One of these two always stays on. If you hide the notch, the taskbar icon is held on for you, because with both of them gone there would be nothing left to click and no way back to this window.':'Один из этих элементов всегда остаётся включённым. Если скрыть панель, значок в панели задач останется включённым, иначе Codenotch будет неоткуда открыть.',
-  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; Codenotch keeps counting your usage either way.':'Чёрная панель у правого края экрана с отдельным кольцом для каждого инструмента. При выключении панель исчезает, но Codenotch продолжает считать использование.',
-  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits Codenotch.':'Небольшой значок рядом с часами. Щелчок правой кнопкой открывает это окно, обновляет данные или завершает работу Codenotch.',
-  'Held on: the notch is hidden, so this icon is the only way left to reach Codenotch. Switch the notch back on first if you want to hide it.':'Оставлен включённым: панель скрыта, поэтому этот значок — единственный способ открыть Codenotch. Сначала включите панель, если хотите скрыть значок.',
-  'Sets the language used by Codenotch. “Follow system” uses the language Windows itself is set to.':'Задаёт язык Codenotch. Вариант «Как в системе» использует язык Windows.',
-  'The small icon down by the clock. Codenotch draws your usage straight into it — 32 pixels square. Pick a layout, then click a part of the picture to choose what that part shows.':'Небольшой значок рядом с часами. Codenotch показывает в нём использование — 32 пикселя. Выберите макет и нажмите на часть изображения, чтобы настроить её.',
-  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends Codenotch a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'При включении в файл настроек Claude Code добавляются строки, чтобы он сообщал Codenotch о начале работы, процессе, ожидании ответа и завершении сеанса. Благодаря этому кольцо вращается, а янтарное кольцо пульсирует.',
+  'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit NotchMon, so NotchMon will not let both of them be switched off at the same time.':'Значок в панели задач оставлен включённым. При скрытой панели это единственный способ открыть окно или завершить работу NotchMon, поэтому оба элемента нельзя выключить одновременно.',
+  'One of these two always stays on. If you hide the notch, the taskbar icon is held on for you, because with both of them gone there would be nothing left to click and no way back to this window.':'Один из этих элементов всегда остаётся включённым. Если скрыть панель, значок в панели задач останется включённым, иначе NotchMon будет неоткуда открыть.',
+  'The black pill against the right-hand edge of the screen, with one ring per tool. Turn it off and the pill disappears; NotchMon keeps counting your usage either way.':'Чёрная панель у правого края экрана с отдельным кольцом для каждого инструмента. При выключении панель исчезает, но NotchMon продолжает считать использование.',
+  'The small icon down by the clock. Right-clicking it opens this window, refreshes the readings, or quits NotchMon.':'Небольшой значок рядом с часами. Щелчок правой кнопкой открывает это окно, обновляет данные или завершает работу NotchMon.',
+  'Held on: the notch is hidden, so this icon is the only way left to reach NotchMon. Switch the notch back on first if you want to hide it.':'Оставлен включённым: панель скрыта, поэтому этот значок — единственный способ открыть NotchMon. Сначала включите панель, если хотите скрыть значок.',
+  'Sets the language used by NotchMon. “Follow system” uses the language Windows itself is set to.':'Задаёт язык NotchMon. Вариант «Как в системе» использует язык Windows.',
+  'The small icon down by the clock. NotchMon draws your usage straight into it — 32 pixels square. Pick a layout, then click a part of the picture to choose what that part shows.':'Небольшой значок рядом с часами. NotchMon показывает в нём использование — 32 пикселя. Выберите макет и нажмите на часть изображения, чтобы настроить её.',
+  'Turning this on adds a few lines to your Claude Code settings file so that Claude Code sends NotchMon a short message when a session starts, when it is working, when it is waiting for your answer, and when it finishes. That is what makes the ring spin and the amber ring pulse.':'При включении в файл настроек Claude Code добавляются строки, чтобы он сообщал NotchMon о начале работы, процессе, ожидании ответа и завершении сеанса. Благодаря этому кольцо вращается, а янтарное кольцо пульсирует.',
   'The file being changed is':'Изменяемый файл —',
   'in your user folder. A dated copy of it is saved before anything is written, and turning this switch off takes the lines out again. Any hooks you added yourself are left alone.':'в вашей папке пользователя. Перед изменением сохраняется копия с датой, а при выключении настройки добавленные строки удаляются. Ваши собственные хуки не затрагиваются.',
   'Shows how much of your Claude, Codex, Cursor and Antigravity allowance you have used, in the taskbar icon and in a pill at the edge of the screen.':'Показывает использование Claude, Codex, Cursor и Antigravity в значке панели задач и на панели у края экрана.',
-  'Everything Codenotch remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in File Explorer.':'Все данные Codenotch хранятся в одной папке: настройки, журнал и папка «glyphs» для собственных значков. Открывается в Проводнике.',
+  'Everything NotchMon remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in File Explorer.':'Все данные NotchMon хранятся в одной папке: настройки, журнал и папка «glyphs» для собственных значков. Открывается в Проводнике.',
   'The pill can be dragged up and down the right-hand edge. If it has ended up somewhere you cannot see it — off the bottom of a screen you have unplugged, say — this drops it back into the middle of the edge.':'Панель можно перетаскивать вверх и вниз вдоль правого края. Если она оказалась за пределами экрана, эта кнопка возвращает её в середину края.',
-  'The plain Codenotch logo is used.':'Используется обычный логотип Codenotch.', 'No numbers are drawn.':'Числа не отображаются.',
+  'The plain NotchMon logo is used.':'Используется обычный логотип NotchMon.', 'No numbers are drawn.':'Числа не отображаются.',
   'This is how big it really is in the taskbar.':'Такой размер значок имеет в панели задач.',
   'Windows picks one of these depending on the display. If a number is unreadable here, it will be unreadable in the taskbar.':'Windows выбирает один из вариантов в зависимости от масштаба экрана. Если число не читается здесь, в панели задач оно тоже не будет читаться.',
-  'Notch size':'Размер панели', 'Codenotch':'Codenotch', 'Tray icon preview':'Предпросмотр значка', 'Codenotch logo':'Логотип Codenotch', 'Tray icon at':'Значок размером', 'pixels':'пикселей',
+  'Notch size':'Размер панели', 'NotchMon':'NotchMon', 'Tray icon preview':'Предпросмотр значка', 'NotchMon logo':'Логотип NotchMon', 'Tray icon at':'Значок размером', 'pixels':'пикселей',
   'Down the right-hand edge':'У правого края', 'Down the left-hand edge':'У левого края', 'Top half':'Верхняя половина', 'Bottom half':'Нижняя половина', 'Column':'Столбец', 'Remove column':'Удалить столбец'
 };
 const PT_STATIC = {
   'Settings sections':'Seções', 'Appearance':'Aparência', 'Taskbar icon':'Ícone da barra de tarefas', 'Notch':'Barra', 'General':'Geral', 'Behaviour':'Comportamento', 'Claude Code':'Claude Code', 'About':'Sobre', 'Companion':'Companheiro',
-  'The small icon down by the clock. Codenotch draws your usage straight into it — 32 pixels square. Pick a layout, then click a part of the picture to choose what that part shows.':'O ícone pequeno perto do relógio. O uso é desenhado direto nele, em 32 pixels. Escolha um layout e clique numa parte da imagem para definir o que ela mostra.',
+  'The small icon down by the clock. NotchMon draws your usage straight into it — 32 pixels square. Pick a layout, then click a part of the picture to choose what that part shows.':'O ícone pequeno perto do relógio. O uso é desenhado direto nele, em 32 pixels. Escolha um layout e clique numa parte da imagem para definir o que ela mostra.',
   'Layout':'Layout', 'What gets drawn into those 32 pixels.':'O que é desenhado nesses 32 pixels.', 'Actual size':'Tamanho real', 'This is how big it really is in the taskbar.':'É deste tamanho que ele aparece na barra de tarefas.',
   'Windows picks one of these depending on the display. If a number is unreadable here, it will be unreadable in the taskbar.':'O Windows escolhe um destes conforme a tela. Se um número não dá para ler aqui, também não dará na barra de tarefas.',
   'What each part shows':'O que cada parte mostra', 'Pick the tool; each part draws that tool\'s ring.':'Escolha a ferramenta; cada parte desenha o anel dela.',
@@ -634,18 +641,18 @@ const PT_STATIC = {
   'What appears on the pill':'O que aparece na barra', 'Click a name to switch its ring on or off.':'Clique num nome para ligar ou desligar o anel.', 'Size':'Tamanho',
   'How big the pill is drawn. The same slider sits at the foot of the pill\'s hover card, so it can be changed from either place.':'O tamanho da barra. O mesmo controle fica no rodapé do card da barra, então dá para mudar dos dois lugares.',
   'Whether the pill is on screen at all is a separate switch, under General → Behaviour.':'Se a barra aparece ou não é outra chave, em Geral → Comportamento.',
-  'When Codenotch runs, and what it puts on your screen.':'Quando o NotchMon roda e o que ele põe na tela.', 'Starting up':'Inicialização', 'Start with Windows':'Iniciar com o Windows',
-  'Codenotch opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open Codenotch yourself.':'O NotchMon abre sozinho toda vez que você entra neste computador e espera em segundo plano até uma sessão começar. Desligue e você precisa abri-lo por conta própria.',
+  'When NotchMon runs, and what it puts on your screen.':'Quando o NotchMon roda e o que ele põe na tela.', 'Starting up':'Inicialização', 'Start with Windows':'Iniciar com o Windows',
+  'NotchMon opens by itself every time you sign in to this computer, and waits quietly in the background until a coding session starts. Turn it off and you have to open NotchMon yourself.':'O NotchMon abre sozinho toda vez que você entra neste computador e espera em segundo plano até uma sessão começar. Desligue e você precisa abri-lo por conta própria.',
   'What is on screen':'O que fica na tela', 'Show the notch':'Mostrar a barra', 'Show the taskbar icon':'Mostrar o ícone da barra de tarefas',
-  'Language':'Idioma', 'Words used by Codenotch':'Idioma do NotchMon', 'Follow system':'Como o sistema', 'Sets the language used by Codenotch. “Follow system” uses the language Windows itself is set to.':'Define o idioma do NotchMon. "Como o sistema" usa o idioma do próprio Windows.',
-  'Claude Code can tell Codenotch the moment something happens in a session, instead of Codenotch having to guess from files on disk.':'O Claude Code pode avisar o NotchMon no momento em que algo acontece numa sessão, em vez de ele adivinhar pelos arquivos em disco.',
-  'Session messages':'Mensagens de sessão', 'Let Claude Code notify Codenotch':'Deixar o Claude Code avisar o NotchMon',
-  'What this copy of Codenotch is, and where it keeps its files.':'O que é esta cópia do NotchMon e onde ela guarda os arquivos.', 'Version':'Versão', 'Files':'Arquivos', 'Data folder':'Pasta de dados', 'Open folder':'Abrir pasta', 'If something looks wrong':'Se algo parece errado', 'Put the notch back':'Trazer a barra de volta', 'Reset position':'Redefinir posição', 'Saved':'Salvo',
+  'Language':'Idioma', 'Words used by NotchMon':'Idioma do NotchMon', 'Follow system':'Como o sistema', 'Sets the language used by NotchMon. “Follow system” uses the language Windows itself is set to.':'Define o idioma do NotchMon. "Como o sistema" usa o idioma do próprio Windows.',
+  'Claude Code can tell NotchMon the moment something happens in a session, instead of NotchMon having to guess from files on disk.':'O Claude Code pode avisar o NotchMon no momento em que algo acontece numa sessão, em vez de ele adivinhar pelos arquivos em disco.',
+  'Session messages':'Mensagens de sessão', 'Let Claude Code notify NotchMon':'Deixar o Claude Code avisar o NotchMon',
+  'What this copy of NotchMon is, and where it keeps its files.':'O que é esta cópia do NotchMon e onde ela guarda os arquivos.', 'Version':'Versão', 'Files':'Arquivos', 'Data folder':'Pasta de dados', 'Open folder':'Abrir pasta', 'If something looks wrong':'Se algo parece errado', 'Put the notch back':'Trazer a barra de volta', 'Reset position':'Redefinir posição', 'Saved':'Salvo',
   'Numbers':'Números', 'two readings':'duas leituras', 'Bars':'Barras', '1 to 5 columns':'1 a 5 colunas', 'Plain icon':'Ícone simples', 'just the logo':'só o logo', 'kept':'mantido', 'Showing':'Mostrando', 'Showing in':'Mostrando em',
   'Notch reads':'A barra lê', 'Automatic':'Automático', '5-Hour Limit':'Limite de 5 horas', 'Weekly Limit':'Limite semanal', 'Gemini Models':'Modelos Gemini', 'Claude and GPT models':'Modelos Claude e GPT',
   'One provider always stays ticked, so the pill is never empty.':'Um provedor sempre fica marcado, para a barra nunca ficar vazia.', 'At least one provider stays on the notch':'Pelo menos um provedor fica na barra', 'The notch is back in the middle':'A barra voltou para o meio',
   'The pill can be dragged up and down the right-hand edge. If it has ended up somewhere you cannot see it — off the bottom of a screen you have unplugged, say — this drops it back into the middle of the edge.':'A barra pode ser arrastada pela borda direita. Se ela foi parar onde você não vê (num monitor desconectado, por exemplo), isto a traz de volta ao meio da borda.',
-  'Everything Codenotch remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in File Explorer.':'Tudo que o NotchMon lembra fica numa pasta: configurações, log, o save do companheiro, e a pasta "glyphs" para seus próprios ícones. Abre no Explorador.',
+  'Everything NotchMon remembers lives in one folder: your settings, its log file, and the "glyphs" folder where you can drop your own icons. Opens in File Explorer.':'Tudo que o NotchMon lembra fica numa pasta: configurações, log, o save do companheiro, e a pasta "glyphs" para seus próprios ícones. Abre no Explorador.',
   'Shows how much of your Claude, Codex, Cursor and Antigravity allowance you have used, in the taskbar icon and in a pill at the edge of the screen.':'Mostra quanto das suas cotas de Claude, Codex, Cursor e Antigravity você já usou, no ícone da barra de tarefas e numa barrinha na borda da tela.',
   'The Pokémon your tokens raise. Where it shows up, how it moves, and how fast it grows.':'O Pokémon que seus tokens criam. Onde ele aparece, como se mexe e quão rápido cresce.',
   'On the pill':'Na barra', 'Three layouts. The cell is the default; the hero puts the sprite on top of the pill; none keeps the pill as it was and leaves the companion to the panel and the pet.':'Três layouts. A célula é o padrão; o herói põe o sprite no topo da barra; nenhum deixa a barra como era e o companheiro fica no painel e no pet.',
@@ -655,6 +662,7 @@ const PT_STATIC = {
   'Pin any species you own to the pill and the pet, instead of following the one being raised. Pick it from a cell in the Pokédex; this only clears the choice.':'Fixe qualquer espécie que você tem na barra e no pet, em vez de seguir o que está sendo criado. Escolha numa célula da Pokédex; aqui só se desfaz a escolha.',
   'Follow the companion':'Seguir o companheiro', 'Animation':'Animação', 'Power saver keeps the sprites still. Balanced animates them while a session is working. Smooth animates them all the time, at a little CPU.':'Econômica deixa os sprites parados. Equilibrada anima enquanto uma sessão trabalha. Suave anima o tempo todo, com um pouco de CPU.',
   'Power saver':'Econômica', 'Balanced':'Equilibrada', 'Smooth':'Suave', 'Limit display':'Limite mostrado', 'Whether the companion tab writes the official limits as used or as remaining.':'Se a aba do companheiro escreve os limites oficiais como usado ou como restante.', 'Used':'Usado', 'Remaining':'Restante',
+  'Sprite in the taskbar icon':'Sprite no ícone da barra de tarefas', 'The taskbar icon shows the companion instead of the numbers or bars chosen under Taskbar icon.':'O ícone da barra de tarefas mostra o companheiro em vez dos números ou barras escolhidos em Ícone da barra de tarefas.',
   'Event bubbles':'Balões de eventos', 'A small bubble beside the pill and over the pet when the egg hatches, the Pokémon evolves or graduates, a shiny appears, or a full ring pays a Rare Candy.':'Um balão ao lado da barra e sobre o pet quando o ovo choca, o Pokémon evolui ou se forma, um shiny aparece, ou um anel cheio paga um Rare Candy.',
   'Difficulty':'Dificuldade', '10% to 200% of the default balance. Lower grows faster and costs less; higher does the opposite. Changing growth keeps your current progress instead of triggering an evolution. Press Save to apply.':'De 10% a 200% do balanço padrão. Menor cresce mais rápido e custa menos; maior, o contrário. Mudar o crescimento preserva o progresso atual em vez de forçar uma evolução. Aperte Salvar para aplicar.',
   'Growth':'Crescimento', 'Shop prices':'Preços da loja', 'Save':'Salvar', 'Pinned:':'Fixado:', 'Following the companion':'Seguindo o companheiro',
@@ -1020,7 +1028,7 @@ function renderChips(){
 function renderPicker(){
   const host = document.getElementById('picker');
   if(cfg.mode === 'off'){
-    host.innerHTML = '<div class="c-note dim">' + esc(ui('The taskbar icon shows the plain Codenotch logo.', 'The taskbar icon shows the plain Codenotch logo.')) + ' '
+    host.innerHTML = '<div class="c-note dim">' + esc(ui('The taskbar icon shows the plain NotchMon logo.', 'The taskbar icon shows the plain NotchMon logo.')) + ' '
       + esc(ui('Choose Numbers or Bars above to draw your usage into it.', 'Choose Numbers or Bars above to draw your usage into it.')) + '</div>';
     return;
   }
@@ -1250,7 +1258,7 @@ function setSwitch(id, on, disabled){
 }
 
 /* ---- what is on screen at all ------------------------------------------
-   Two switches, one command. Hiding both would leave Codenotch running with nothing to click, so
+   Two switches, one command. Hiding both would leave NotchMon running with nothing to click, so
    the Rust side forces the taskbar icon back on whenever the notch is hidden — and the answer to
    set_ui_flags says what was ACTUALLY stored. Everything below re-renders from that answer, never
    from the request, and says so on screen when the two differ. */
@@ -1285,9 +1293,9 @@ function saveFlags(wantNotch, wantTray){
         fix.hidden = !corrected;
         if(corrected){
           fix.textContent = ui('The taskbar icon has been kept on. With the notch hidden it is the '
-            + 'only way left to open this window or to quit Codenotch, so Codenotch will not let '
+            + 'only way left to open this window or to quit NotchMon, so NotchMon will not let '
             + 'both of them be switched off at the same time.',
-            'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit Codenotch, so Codenotch will not let both of them be switched off at the same time.');
+            'The taskbar icon has been kept on. With the notch hidden it is the only way left to open this window or to quit NotchMon, so NotchMon will not let both of them be switched off at the same time.');
         }
       }
       toast(ui('Saved', 'Saved'));
@@ -1390,6 +1398,7 @@ function renderCompanionPane(){
   document.querySelectorAll('#pill-modes .mode').forEach(b => b.classList.toggle('on', b.dataset.pm === cprefs.pillMode));
   setSwitch('sw-pet', !!cprefs.pet, false);
   setSwitch('sw-notif', !!cprefs.notifications, false);
+  setSwitch('sw-tray-sprite', !!cprefs.traySprite, false);
   const ps = document.getElementById('pet-size'); if(ps) ps.value = String(cprefs.petSize);
   const an = document.getElementById('anim'); if(an) an.value = cprefs.animation;
   const ld = document.getElementById('limit-display'); if(ld) ld.value = cprefs.limitDisplay;
@@ -1412,6 +1421,7 @@ function saveCprefs(next){
 document.getElementById('pill-modes').addEventListener('click', e => { const b = e.target.closest('[data-pm]'); if(b) saveCprefs({ pillMode: b.dataset.pm }); });
 document.getElementById('sw-pet').addEventListener('click', () => saveCprefs({ pet: !cprefs.pet }));
 document.getElementById('sw-notif').addEventListener('click', () => saveCprefs({ notifications: !cprefs.notifications }));
+document.getElementById('sw-tray-sprite').addEventListener('click', () => saveCprefs({ traySprite: !cprefs.traySprite }));
 document.getElementById('pet-size').addEventListener('change', e => saveCprefs({ petSize: Number(e.target.value) }));
 document.getElementById('anim').addEventListener('change', e => saveCprefs({ animation: e.target.value }));
 document.getElementById('limit-display').addEventListener('change', e => saveCprefs({ limitDisplay: e.target.value }));

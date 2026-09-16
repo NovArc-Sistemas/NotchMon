@@ -191,11 +191,33 @@ impl Default for Config {
     }
 }
 
+/// `%APPDATA%\notchmon`. The first run after the rename copies whatever `%APPDATA%\codenotch`
+/// held (settings, readings, the companion save) so nobody loses a Pokémon to a folder name.
+pub fn data_dir() -> PathBuf {
+    let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+    let dir = base.join("notchmon");
+    let old = base.join("codenotch");
+    if !dir.exists() && old.is_dir() {
+        let _ = copy_dir(&old, &dir);
+    }
+    dir
+}
+
+fn copy_dir(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for e in std::fs::read_dir(from)?.flatten() {
+        let target = to.join(e.file_name());
+        if e.path().is_dir() {
+            copy_dir(&e.path(), &target)?;
+        } else {
+            std::fs::copy(e.path(), target)?;
+        }
+    }
+    Ok(())
+}
+
 pub fn config_path() -> PathBuf {
-    dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("codenotch")
-        .join("config.json")
+    data_dir().join("config.json")
 }
 
 pub fn load() -> Config {

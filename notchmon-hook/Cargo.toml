@@ -1,0 +1,9 @@
+[package]
+name = "notchmon-hook"
+version = "1.0.0"
+edition = "2021"
+description = "NotchMon hook launcher: report Claude Code hook events, auto-start main app"
+license = "MIT"
+repository = "https://github.com/NovArc-Sistemas/NotchMon"
+
+[dependencies]

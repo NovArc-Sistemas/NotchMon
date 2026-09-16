@@ -183,7 +183,7 @@ fn fetch_usage(cred: &Credential) -> Result<serde_json::Value, LiveErr> {
         .set("ChatGPT-Account-Id", &cred.account_id)
         .set("Accept", "application/json")
         .set("Cache-Control", "no-cache, no-store")
-        .set("User-Agent", concat!("codenotch/", env!("CARGO_PKG_VERSION"), " (Windows)"))
+        .set("User-Agent", concat!("notchmon/", env!("CARGO_PKG_VERSION"), " (Windows)"))
         .timeout(Duration::from_secs(15))
         .call();
     match resp {

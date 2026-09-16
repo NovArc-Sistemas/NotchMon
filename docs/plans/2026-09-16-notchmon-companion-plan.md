@@ -37,6 +37,11 @@ This page is the design and the build order in one.
 ## Build order
 
 Each phase ends with `cargo test` green and one commit on `feat/notchmon-companion-20260916`.
+All six shipped on 2026-09-16; the crates and folders were renamed `notchmon` / `notchmon-hook` and
+the data folder moved to `%APPDATA%
+otchmon` (copied once from `codenotch`). Left for later: OS
+toast notifications (the bubbles stand in), Cursor and Antigravity tokens for the companion, save
+export/import.
 
 1. tokens.rs with fixture tests.
 2. pokeapi.rs with a fake-server test for parsing.

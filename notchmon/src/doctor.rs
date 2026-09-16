@@ -33,7 +33,7 @@ fn age_secs(t: SystemTime) -> u64 {
 
 pub fn run() -> String {
     let mut o = String::new();
-    o += &format!("== Codenotch doctor v{} ==\n", env!("CARGO_PKG_VERSION"));
+    o += &format!("== NotchMon doctor v{} ==\n", env!("CARGO_PKG_VERSION"));
 
     let cfg = crate::config::load();
     o += &format!(
@@ -44,7 +44,7 @@ pub fn run() -> String {
     );
 
     match std::net::TcpListener::bind(("127.0.0.1", cfg.port)) {
-        Ok(_) => o += "port: free — no Codenotch instance is running\n",
+        Ok(_) => o += "port: free — no NotchMon instance is running\n",
         Err(_) => o += "port: in use — an instance is already running (quit it from the tray before starting a new build)\n",
     }
 
@@ -85,8 +85,8 @@ pub fn run() -> String {
     o += &format!("\nworking state:\n  {}\n", crate::activity::probe());
 
     o += "\nwatch.log (the most recent watcher log, if any):\n";
-    if let Some(dir) = dirs::config_dir() {
-        let p = dir.join("codenotch").join("watch.log");
+    {
+        let p = crate::config::data_dir().join("watch.log");
         match std::fs::read_to_string(&p) {
             Ok(t) if !t.trim().is_empty() => {
                 for line in t.lines().rev().take(20).collect::<Vec<_>>().into_iter().rev() {

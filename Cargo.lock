@@ -496,31 +496,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e4de3bc4ea267985becf712dc6d9eed8b04c953b3fcfb339ebc87acd9804901"
 
 [[package]]
-name = "codenotch"
-version = "0.3.0"
-dependencies = [
- "chrono",
- "dirs 5.0.1",
- "native-tls",
- "notify",
- "png 0.17.16",
- "rusqlite",
- "ruzstd",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-single-instance",
- "tiny_http",
- "ureq",
- "windows 0.58.0",
-]
-
-[[package]]
-name = "codenotch-hook"
-version = "0.3.0"
-
-[[package]]
 name = "combine"
 version = "4.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2351,6 +2326,31 @@ name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
+
+[[package]]
+name = "notchmon"
+version = "1.0.0"
+dependencies = [
+ "chrono",
+ "dirs 5.0.1",
+ "native-tls",
+ "notify",
+ "png 0.17.16",
+ "rusqlite",
+ "ruzstd",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-single-instance",
+ "tiny_http",
+ "ureq",
+ "windows 0.58.0",
+]
+
+[[package]]
+name = "notchmon-hook"
+version = "1.0.0"
 
 [[package]]
 name = "notify"

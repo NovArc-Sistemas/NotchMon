@@ -1,10 +1,10 @@
-//! Merges codenotch-hook.exe into ~/.claude/settings.json without overwriting the user's own hooks.
-//! Identification: the command contains "codenotch-hook". A backup is written first.
+//! Merges notchmon-hook.exe into ~/.claude/settings.json without overwriting the user's own hooks.
+//! Identification: the command contains "notchmon-hook" (or the older "codenotch-hook"). A backup is written first.
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-/// (Claude Code event name, whether it needs a matcher, the internal event reported to Codenotch)
+/// (Claude Code event name, whether it needs a matcher, the internal event reported to NotchMon)
 const WIRING: &[(&str, bool, &str)] = &[
     ("SessionStart", false, "session_start"),
     ("UserPromptSubmit", false, "running"),
@@ -26,7 +26,7 @@ fn is_ours(entry: &Value) -> bool {
             hs.iter().any(|h| {
                 h["command"]
                     .as_str()
-                    .map(|c| c.contains("codenotch-hook") || c.contains("eatbean-hook") || c.contains("pacman-hook"))
+                    .map(|c| c.contains("notchmon-hook") || c.contains("codenotch-hook") || c.contains("eatbean-hook") || c.contains("pacman-hook"))
                     .unwrap_or(false)
             })
         })
@@ -49,7 +49,7 @@ fn backup_and_write(path: &PathBuf, root: &Value) -> Result<(), String> {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
-        let _ = std::fs::copy(path, path.with_extension(format!("json.codenotch-bak-{ts}")));
+        let _ = std::fs::copy(path, path.with_extension(format!("json.notchmon-bak-{ts}")));
     }
     let txt = serde_json::to_string_pretty(root).map_err(|e| e.to_string())?;
     std::fs::write(path, txt).map_err(|e| e.to_string())
@@ -58,7 +58,7 @@ fn backup_and_write(path: &PathBuf, root: &Value) -> Result<(), String> {
 pub fn is_installed() -> bool {
     settings_path()
         .and_then(|p| std::fs::read_to_string(p).ok())
-        .map(|t| t.contains("codenotch-hook"))
+        .map(|t| t.contains("notchmon-hook"))
         .unwrap_or(false)
 }
 
@@ -68,7 +68,7 @@ pub fn install() -> Result<String, String> {
         .map_err(|e| e.to_string())?
         .parent()
         .ok_or("cannot locate the program directory")?
-        .join("codenotch-hook.exe");
+        .join("notchmon-hook.exe");
     if !hook_exe.exists() {
         return Err(format!("missing {}", hook_exe.display()));
     }
@@ -118,5 +118,5 @@ pub fn uninstall() -> Result<String, String> {
         }
     }
     backup_and_write(&path, &root)?;
-    Ok(format!("removed {removed} Codenotch hook(s)"))
+    Ok(format!("removed {removed} NotchMon hook(s)"))
 }

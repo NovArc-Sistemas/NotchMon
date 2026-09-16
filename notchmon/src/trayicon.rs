@@ -243,6 +243,108 @@ pub fn bars_rgba(values: &[Option<u32>]) -> Vec<u8> {
     buf
 }
 
+
+/// The companion's sprite as the icon: the PNG cropped to its opaque bounds and fitted into the
+/// 32x32 square with nearest-neighbour sampling (a pixel sprite blurred by bilinear scaling reads
+/// as mush at that size). None when the file cannot be decoded.
+pub fn sprite_rgba(png_bytes: &[u8]) -> Option<Vec<u8>> {
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(png_bytes));
+    decoder.set_transformations(png::Transformations::normalize_to_color8()); // palette sprites become RGBA
+    let mut reader = decoder.read_info().ok()?;
+    let mut data = vec![0; reader.output_buffer_size()];
+    let info = reader.next_frame(&mut data).ok()?;
+    let (w, h) = (info.width as usize, info.height as usize);
+    // Expand whatever the file uses to RGBA
+    let px: Vec<[u8; 4]> = match info.color_type {
+        png::ColorType::Rgba => data.chunks(4).map(|c| [c[0], c[1], c[2], c[3]]).collect(),
+        png::ColorType::Rgb => data.chunks(3).map(|c| [c[0], c[1], c[2], 255]).collect(),
+        png::ColorType::GrayscaleAlpha => data.chunks(2).map(|c| [c[0], c[0], c[0], c[1]]).collect(),
+        png::ColorType::Grayscale => data.iter().map(|g| [*g, *g, *g, 255]).collect(),
+        _ => return None,
+    };
+    if px.len() < w * h {
+        return None;
+    }
+    // Opaque bounds
+    let (mut x0, mut y0, mut x1, mut y1) = (w, h, 0usize, 0usize);
+    for y in 0..h {
+        for x in 0..w {
+            if px[y * w + x][3] > 8 {
+                x0 = x0.min(x);
+                y0 = y0.min(y);
+                x1 = x1.max(x);
+                y1 = y1.max(y);
+            }
+        }
+    }
+    if x1 < x0 || y1 < y0 {
+        return None;
+    }
+    let (cw, ch) = (x1 - x0 + 1, y1 - y0 + 1);
+    let side = cw.max(ch);
+    let mut buf = vec![0u8; SIZE * SIZE * 4];
+    // Centre the crop in a square, then map every icon pixel back to a source pixel
+    let (ox, oy) = ((side - cw) / 2, (side - ch) / 2);
+    for iy in 0..SIZE {
+        for ix in 0..SIZE {
+            let sx = ix * side / SIZE;
+            let sy = iy * side / SIZE;
+            if sx < ox || sy < oy || sx - ox >= cw || sy - oy >= ch {
+                continue;
+            }
+            let p = px[(y0 + sy - oy) * w + (x0 + sx - ox)];
+            if p[3] > 8 {
+                let i = (iy * SIZE + ix) * 4;
+                buf[i..i + 4].copy_from_slice(&p);
+            }
+        }
+    }
+    Some(buf)
+}
+
+pub fn sprite(png_bytes: &[u8]) -> Option<tauri::image::Image<'static>> {
+    sprite_rgba(png_bytes).map(|buf| tauri::image::Image::new_owned(buf, SIZE as u32, SIZE as u32))
+}
+
+#[cfg(test)]
+mod sprite_tests {
+    use super::*;
+
+    #[test]
+    fn a_small_sprite_is_cropped_and_scaled_to_fill_the_icon() {
+        // 8x8 RGBA, a 2x2 red square in the middle, transparent elsewhere
+        let mut raw = vec![0u8; 8 * 8 * 4];
+        for (x, y) in [(3, 3), (4, 3), (3, 4), (4, 4)] {
+            let i = (y * 8 + x) * 4;
+            raw[i..i + 4].copy_from_slice(&[255, 0, 0, 255]);
+        }
+        let mut png_bytes = Vec::new();
+        {
+            let mut enc = png::Encoder::new(&mut png_bytes, 8, 8);
+            enc.set_color(png::ColorType::Rgba);
+            enc.set_depth(png::BitDepth::Eight);
+            enc.write_header().unwrap().write_image_data(&raw).unwrap();
+        }
+        let out = sprite_rgba(&png_bytes).expect("decoded");
+        let opaque = out.chunks(4).filter(|p| p[3] == 255).count();
+        assert_eq!(opaque, SIZE * SIZE, "the crop fills the whole icon");
+        assert!(out.chunks(4).all(|p| p[3] == 0 || p[0] == 255));
+    }
+    /// Decodes a real Gen V sprite (4-bit palette PNG) when one has been cached by the app
+    #[test]
+    fn a_cached_palette_sprite_decodes() {
+        let Some(dir) = dirs::config_dir() else { return };
+        for folder in ["notchmon", "codenotch"] {
+            let f = dir.join(folder).join("sprites").join("egg.png");
+            if let Ok(bytes) = std::fs::read(&f) {
+                let out = sprite_rgba(&bytes).expect("palette png decodes");
+                assert!(out.chunks(4).filter(|p| p[3] > 0).count() > 100, "the egg has pixels");
+                return;
+            }
+        }
+    }
+}
+
 /// The icon as a `data:` URL, for the settings window's preview. The image is the real 32x32 one,
 /// shown magnified with pixelated scaling, so what is being edited is literally what the taskbar
 /// will draw.

@@ -14,7 +14,7 @@ pub fn setup(app: &AppHandle) -> tauri::Result<()> {
     let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-color.png"))?;
     TrayIconBuilder::with_id("main")
         .icon(icon)
-        .tooltip(concat!("Codenotch v", env!("CARGO_PKG_VERSION")))
+        .tooltip(concat!("NotchMon v", env!("CARGO_PKG_VERSION")))
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, ev| handle(app, ev.id().as_ref()))
@@ -75,6 +75,8 @@ fn handle(app: &AppHandle, id: &str) {
             crate::codex::request_refresh();
             crate::cursor::request_refresh();
             crate::antigravity::request_refresh();
+            crate::tokens::request_refresh();
+            crate::companion::request_tick();
             let a = app.clone();
             std::thread::spawn(move || crate::reload_glyphs(&a));
         }

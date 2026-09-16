@@ -1,10 +1,10 @@
 [package]
-name = "codenotch"
-version = "0.3.0"
+name = "notchmon"
+version = "1.0.0"
 edition = "2021"
-description = "Codenotch for Windows — usage notch for Claude, Codex, Cursor and Antigravity"
+description = "NotchMon: the usage notch for Claude, Codex, Cursor and Antigravity that raises a Pokémon on your tokens"
 license = "MIT"
-repository = "https://github.com/Im-Midi/codenotch-windows"
+repository = "https://github.com/NovArc-Sistemas/NotchMon"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

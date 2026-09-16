@@ -232,7 +232,7 @@ pub fn focus_claude_desktop() -> bool {
         let Some(name) = maps.name.get(&pid) else {
             continue;
         };
-        if !name.contains("claude") || name.contains("codenotch") {
+        if !name.contains("claude") || name.contains("codenotch") || name.contains("notchmon") {
             continue;
         }
         let mut r = RECT::default();

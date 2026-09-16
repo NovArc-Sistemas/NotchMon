@@ -32,7 +32,7 @@ use tauri::{AppHandle, Emitter, Manager};
 /// and its tail on the left. `fitZoom` in ui/notch.html divides by the same width.
 pub const NOTCH_W: f64 = 380.0;
 /// Hand-bumped build tag, written to run.log at startup so a log can always be matched to the exe that wrote it.
-pub const BUILD: &str = "r33";
+pub const BUILD: &str = "nm1";
 pub const NOTCH_H: f64 = 760.0; // 300 clipped the card once it held three window blocks plus the session list; 460 clipped Antigravity's two model groups once the reading was stale and an agent was working; 520 clipped a card carrying the Consumo section
 
 pub struct AppState {
@@ -1233,12 +1233,34 @@ pub const TRAY_PROVIDER_IDS: [&str; 4] = ["claude", "codex", "cursor", "gemini"]
 
 /// Draws the icon and writes the tooltip. Shared by the polling thread and by the settings window,
 /// so a change made in settings shows up at once rather than on the next poll.
+/// The companion's static sprite file when the taskbar icon is set to show it: `<id>.png` or
+/// `<id>-sh.png` under the sprites folder (downloaded on first use), or the egg.
+fn tray_sprite_file(app: &AppHandle) -> Option<std::path::PathBuf> {
+    let st = app.state::<AppState>();
+    if !st.cfg.lock().unwrap().companion.tray_sprite {
+        return None;
+    }
+    let (id, shiny) = {
+        let e = st.companion.engine.lock().unwrap();
+        let v = companion::view(&e);
+        match v.representative {
+            Some(r) => (r, v.representative_shiny),
+            None if v.is_egg => (0, false),
+            None => (v.current_id, v.active.as_ref().map(|a| a.is_shiny && !(a.ditto_disguise.is_some() && !a.ditto_revealed)).unwrap_or(false)),
+        }
+    };
+    let client = pokeapi::Client::new();
+    if id == 0 { client.asset("egg") } else { client.sprite(id, false, shiny) }
+}
+
 fn paint_tray(app: &AppHandle, mode: &str, slots: &[config::TraySlot], values: &[Option<u32>]) {
     let Some(tray) = app.tray_by_id("main") else {
         applog("tray: no tray with id 'main' — icon not updated");
         return;
     };
+    let sprite = tray_sprite_file(app).and_then(|f| std::fs::read(f).ok()).and_then(|b| trayicon::sprite(&b));
     let outcome = match mode {
+        _ if sprite.is_some() => tray.set_icon(sprite),
         "numbers" if !values.is_empty() => tray.set_icon(Some(trayicon::numbers(values))),
         "bars" if !values.is_empty() => tray.set_icon(Some(trayicon::bars(values))),
         // "Plain icon": the application's own icon
@@ -1264,9 +1286,9 @@ fn paint_tray(app: &AppHandle, mode: &str, slots: &[config::TraySlot], values: &
         })
         .collect();
     let tip = if parts.is_empty() {
-        concat!("Codenotch v", env!("CARGO_PKG_VERSION")).to_string()
+        concat!("NotchMon v", env!("CARGO_PKG_VERSION")).to_string()
     } else {
-        format!("Codenotch — {}", parts.join(" · "))
+        format!("NotchMon — {}", parts.join(" · "))
     };
     let _ = tray.set_tooltip(Some(&tip));
 }
@@ -1295,7 +1317,9 @@ fn start_tray_updater(app: AppHandle) {
                 (c.tray_mode.clone(), c.tray_slots.clone())
             };
             let values: Vec<Option<u32>> = slots.iter().map(|s| reading_for_slot(&app, s)).collect();
-            let key = (mode.clone(), slots.clone(), values.clone());
+            // The sprite file changes with the companion (hatch, evolution, pin), so it is part of the key
+            let sprite_key = tray_sprite_file(&app).map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
+            let key = (format!("{mode}|{sprite_key}"), slots.clone(), values.clone());
             if last.as_ref() == Some(&key) {
                 continue;
             }
@@ -1322,7 +1346,7 @@ fn ack_scan(app: &AppHandle) -> bool {
     }
     let maps = focus::proc_maps();
     let fg_name = maps.name.get(&fg).cloned().unwrap_or_default();
-    let fg_is_claude_desktop = fg_name.contains("claude") && !fg_name.contains("codenotch");
+    let fg_is_claude_desktop = fg_name.contains("claude") && !fg_name.contains("codenotch") && !fg_name.contains("notchmon");
     let st = app.state::<AppState>();
     let mut store = st.store.lock().unwrap();
     store.ack_done(|s| {
@@ -1402,7 +1426,7 @@ fn main() {
             // Launching a freshly built exe while the old one is still running lands here: the new
             // instance is turned away and what stays on screen is the old process. Say so loudly.
             applog(&format!("single instance: another launch was refused; the running instance is build={BUILD} — quit it from the tray first if you just rebuilt"));
-            let _ = app.emit("notice", format!("Codenotch is already running ({BUILD}) — quit it from the tray before starting a new build"));
+            let _ = app.emit("notice", format!("NotchMon is already running ({BUILD}) — quit it from the tray before starting a new build"));
         }))
         .manage(AppState {
             store: Mutex::new(Default::default()),
@@ -1565,7 +1589,7 @@ fn main() {
                     broadcast(&sweeper);
                 }
             });
-            // Persist the config (codenotch-hook reads the port from it)
+            // Persist the config (notchmon-hook reads the port from it)
             {
                 let st = handle.state::<AppState>();
                 let c = st.cfg.lock().unwrap();
@@ -1574,7 +1598,7 @@ fn main() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("Codenotch failed to start");
+        .expect("NotchMon failed to start");
 }
 
 #[cfg(test)]

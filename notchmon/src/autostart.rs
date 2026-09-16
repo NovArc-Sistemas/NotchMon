@@ -5,7 +5,7 @@
 use std::process::Command;
 
 const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
-const NAME: &str = "Codenotch";
+const NAME: &str = "NotchMon";
 
 fn reg(args: &[&str]) -> Option<(bool, String)> {
     let mut c = Command::new("reg");
