@@ -142,6 +142,9 @@
   .c-scale input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:2px;background:#2d2d2d}
   .c-scale input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:10px;height:10px;margin-top:-3.5px;border-radius:50%;background:#8a8a8a;cursor:pointer}
   .c-scale-val{font-size:10px;color:#808080;min-width:30px;text-align:right}
+  .c-gear{display:inline-flex;margin-left:4px;padding:2px;border-radius:4px;color:#808080;cursor:pointer;line-height:0}
+  .c-gear:hover{color:#e8e8ea;background:#1e1e1e}
+  .c-gear svg{width:13px;height:13px}
 
   /* Companion cell: the sprite inside an XP ring (progress of the current form) */
   .cell.mon .glyph img{width:44px;height:44px;image-rendering:pixelated;object-fit:contain}
@@ -252,7 +255,7 @@ function tokFmt(n){ n=Number(n)||0; const trim=(v,d)=>{let s=v.toFixed(d); while
 const RAR={common:'#8e8e93',uncommon:'#34c759',rare:'#0a84ff',legendary:'#ff9f0a'};
 const NAT={hardy:['Hardy','Esforçada'],lonely:['Lonely','Carente'],brave:['Brave','Corajosa'],adamant:['Adamant','Teimosa'],naughty:['Naughty','Levada'],bold:['Bold','Ousada'],docile:['Docile','Dócil'],relaxed:['Relaxed','Descontraída'],impish:['Impish','Travessa'],lax:['Lax','Despreocupada'],timid:['Timid','Medrosa'],hasty:['Hasty','Apressada'],serious:['Serious','Séria'],jolly:['Jolly','Alegre'],naive:['Naive','Ingênua'],modest:['Modest','Modesta'],mild:['Mild','Meiga'],quiet:['Quiet','Discreta'],bashful:['Bashful','Tímida'],rash:['Rash','Impulsiva'],calm:['Calm','Calma'],gentle:['Gentle','Gentil'],sassy:['Sassy','Atrevida'],careful:['Careful','Cautelosa'],quirky:['Quirky','Excêntrica']};
 const PT_TEXT={
-  'Included usage':'Uso incluído','API usage':'Uso de API','On demand':'Sob demanda','Usage':'Uso','Current session':'Sessão atual','Weekly (all models)':'Semanal (todos os modelos)','Weekly (Opus)':'Semanal (Opus)','Weekly (model-scoped)':'Semanal (por modelo)','Weekly limit':'Limite semanal','Weekly Limit':'Limite semanal','5-Hour Limit':'Limite de 5 horas','5-hour Limit':'Limite de 5 horas','5h limit':'Limite de 5 h','Gemini Models':'Modelos Gemini','Claude and GPT models':'Modelos Claude e GPT','Monthly limit':'Limite mensal','Monthly Limit':'Limite mensal','Updated':'Atualizado','Resets at':'Reinicia às','Resets':'Reinicia','Working':'Trabalhando','Waiting':'Aguardando','request today':'pedido hoje','requests today':'pedidos hoje','no requests today':'nenhum pedido hoje','Waiting for first reading…':'Aguardando a primeira leitura…','Sign in to Claude Code to see usage.':'Entre no Claude Code para ver o uso.','Sign in to Cursor to see usage.':'Entre no Cursor para ver o uso.','Sign in to Codex to see usage.':'Entre no Codex para ver o uso.','Sign in to Antigravity to see usage.':'Entre no Antigravity para ver o uso.','needs your input':'precisa de você','Working in':'Trabalhando em','Notch size':'Tamanho da barra','Last 24 hours':'Últimas 24 horas','API-equivalent spend':'Gasto equivalente em API','Open Usage ›':'Abrir Uso ›','Reading codeburn…':'Lendo o codeburn…','Cost':'Custo','Calls':'Chamadas','Sessions':'Sessões','Models':'Modelos','Activities':'Atividades','See all ›':'Ver tudo ›','API-equivalent':'equivalente em API',' · all Claude accounts':' · todas as contas Claude','Today':'Hoje','7 days':'7 dias','30 days':'30 dias','Month':'Mês',
+  'Included usage':'Uso incluído','API usage':'Uso de API','On demand':'Sob demanda','Usage':'Uso','Current session':'Sessão atual','Weekly (all models)':'Semanal (todos os modelos)','Weekly (Opus)':'Semanal (Opus)','Weekly (model-scoped)':'Semanal (por modelo)','Weekly limit':'Limite semanal','Weekly Limit':'Limite semanal','5-Hour Limit':'Limite de 5 horas','5-hour Limit':'Limite de 5 horas','5h limit':'Limite de 5 h','Gemini Models':'Modelos Gemini','Claude and GPT models':'Modelos Claude e GPT','Monthly limit':'Limite mensal','Monthly Limit':'Limite mensal','Updated':'Atualizado','Resets at':'Reinicia às','Resets':'Reinicia','Working':'Trabalhando','Waiting':'Aguardando','request today':'pedido hoje','requests today':'pedidos hoje','no requests today':'nenhum pedido hoje','Waiting for first reading…':'Aguardando a primeira leitura…','Sign in to Claude Code to see usage.':'Entre no Claude Code para ver o uso.','Sign in to Cursor to see usage.':'Entre no Cursor para ver o uso.','Sign in to Codex to see usage.':'Entre no Codex para ver o uso.','Sign in to Antigravity to see usage.':'Entre no Antigravity para ver o uso.','needs your input':'precisa de você','Working in':'Trabalhando em','Notch size':'Tamanho da barra','Settings':'Configurações','Last 24 hours':'Últimas 24 horas','API-equivalent spend':'Gasto equivalente em API','Open Usage ›':'Abrir Uso ›','Reading codeburn…':'Lendo o codeburn…','Cost':'Custo','Calls':'Chamadas','Sessions':'Sessões','Models':'Modelos','Activities':'Atividades','See all ›':'Ver tudo ›','API-equivalent':'equivalente em API',' · all Claude accounts':' · todas as contas Claude','Today':'Hoje','7 days':'7 dias','30 days':'30 dias','Month':'Mês',
   'Egg':'Ovo','Incubating':'Incubando','Hatching soon.':'Vai chocar logo.','About to hatch!':'Está quase chocando!','to hatch':'para chocar','Final form':'Forma final','Form':'Forma','of':'de','to graduation':'para formar','to next evolution':'para evoluir','Keeping quiet today.':'Hoje está quietinho.',"Today's work is piling up.":'O trabalho de hoje está se acumulando.','In focus mode now.':'Agora está em modo foco.','Close to the limit. A short break is fine.':'Está perto do limite. Uma pausa cai bem.','Sleeping now.':'Agora está dormindo.','It grew!':'Cresceu!','evolved!':'evoluiu!',"Today's tokens":'Tokens de hoje','all tools':'todas as ferramentas','Week':'Semana','Open companion ›':'Abrir companheiro ›','Hatched!':'Chocou!','Shiny!':'Shiny!','Graduated!':'Formou-se!','went to the Pokédex. A new egg is here.':'foi para a Pokédex. Um ovo novo chegou.','Rare Candy':'Rare Candy','in the bag':'na mochila','Huh? It is Ditto!':'Ué? É um Ditto!','Companion':'Companheiro','Lv.':'Nv.','Common':'Comum','Uncommon':'Incomum','Rare':'Raro','Legendary':'Lendário'
 };
 const TT=k=>uiLang==='pt'?(PT_TEXT[k]||k):(uiLang==='ru'?textCopy(k):k);
@@ -297,7 +300,7 @@ function renderBrandCard(c){
     html+=cbRows(rows,'#0A6CFF');
   }
   html+=`<span class="cb-more" data-open="all">${TT('Open Usage ›')}</span>`;
-  html+=`<div class="c-scale"><input id="scale-range" type="range" min="40" max="100" step="5" value="${scalePct}" aria-label="${textCopy('Notch size')}" title="${textCopy('Notch size')}"><span class="c-scale-val" id="scale-val">${scalePct}%</span></div>`;
+  html+=`<div class="c-scale"><input id="scale-range" type="range" min="40" max="100" step="5" value="${scalePct}" aria-label="${textCopy('Notch size')}" title="${textCopy('Notch size')}"><span class="c-scale-val" id="scale-val">${scalePct}%</span><span class="c-gear" data-settings role="button" aria-label="${textCopy('Settings')}" title="${textCopy('Settings')}">${GEAR}</span></div>`;
   c.innerHTML=html; wireScaleRow(); placeCard();
 }
 let glyphs={}; // id → {kind:'mark'|'appicon', url}
@@ -341,8 +344,9 @@ const RU_TEXT={
   'Sign in to Antigravity to see usage.':'Войдите в Antigravity, чтобы увидеть использование.',
   'needs your input':'требуется ваш ответ',
   'Working in':'Работает в',
-  'Notch size':'Размер панели'
+  'Notch size':'Размер панели','Settings':'Настройки'
 };
+const GEAR='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
 function textCopy(value){
   if(!value) return '';
   if(uiLang==='pt') return PT_TEXT[value]||value;
@@ -627,7 +631,7 @@ function renderCard(){
     }
   }
   if(cb.available&&cbProvider(p.id)) html+=consumoHtml(cbProvider(p.id));
-  html+=`<div class="c-scale"><input id="scale-range" type="range" min="40" max="100" step="5" value="${scalePct}" aria-label="${textCopy('Notch size')}" title="${textCopy('Notch size')}"><span class="c-scale-val" id="scale-val">${scalePct}%</span></div>`;
+  html+=`<div class="c-scale"><input id="scale-range" type="range" min="40" max="100" step="5" value="${scalePct}" aria-label="${textCopy('Notch size')}" title="${textCopy('Notch size')}"><span class="c-scale-val" id="scale-val">${scalePct}%</span><span class="c-gear" data-settings role="button" aria-label="${textCopy('Settings')}" title="${textCopy('Settings')}">${GEAR}</span></div>`;
   c.innerHTML=html;
   wireScaleRow();
   placeCard();
@@ -714,7 +718,7 @@ function renderMonCard(c){
   const t=Object.values(P).reduce((a,p)=>({in:a.in+p.today.in,out:a.out+p.today.out,cw:a.cw+p.today.cw,cr:a.cr+p.today.cr}),{in:0,out:0,cw:0,cr:0});
   html+=`<div style="display:flex;font-size:10.5px;color:#9a9a9a;margin-top:6px;gap:10px;flex-wrap:wrap"><span>in ${tokFmt(t.in)}</span><span>out ${tokFmt(t.out)}</span><span>cache w ${tokFmt(t.cw)}</span><span>cache r ${tokFmt(t.cr)}</span></div>`;
   html+=`<span class="cb-more" data-open="companion">${TT('Open companion ›')}</span></div>`;
-  html+=`<div class="c-scale"><input id="scale-range" type="range" min="40" max="100" step="5" value="${scalePct}" aria-label="${textCopy('Notch size')}" title="${textCopy('Notch size')}"><span class="c-scale-val" id="scale-val">${scalePct}%</span></div>`;
+  html+=`<div class="c-scale"><input id="scale-range" type="range" min="40" max="100" step="5" value="${scalePct}" aria-label="${textCopy('Notch size')}" title="${textCopy('Notch size')}"><span class="c-scale-val" id="scale-val">${scalePct}%</span><span class="c-gear" data-settings role="button" aria-label="${textCopy('Settings')}" title="${textCopy('Settings')}">${GEAR}</span></div>`;
   c.innerHTML=html; wireScaleRow(); placeCard();
 }
 // Hatch, evolution, graduation, candy: a bubble beside the companion cell for six seconds
@@ -896,6 +900,8 @@ document.addEventListener('mouseup',e=>{
   press=null;
 });
 listen('drag_end',()=>{dragging=false;press=null;reportHot();}).catch(()=>{});
+// Right-click on the pill opens the settings window, the same as the tray menu
+pill.addEventListener('contextmenu',e=>{ e.preventDefault(); invoke('open_settings').catch(err=>notice('open_settings failed: '+err)); });
 
 // Folding away: remembered in this WebView's storage, so a restart keeps the pill where it was left
 function isFolded(){ return root.classList.contains('folded'); }
@@ -951,6 +957,7 @@ invoke('get_codeburn').then(v=>{ if(v){ cb=v; renderRing(); } }).catch(()=>{});
 card.addEventListener('click',e=>{
   const per=e.target.closest('[data-period]');
   if(per){ cardPeriod=per.dataset.period; renderCard(); armWatchdog(); return; }
+  if(e.target.closest('[data-settings]')){ invoke('open_settings').catch(err=>notice('open_settings failed: '+err)); return; }
   const op=e.target.closest('[data-open]');
   if(op) invoke('open_consumo',{provider:op.dataset.open}).catch(err=>notice('open_consumo failed: '+err));
 });
