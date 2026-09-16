@@ -38,10 +38,11 @@ This page is the design and the build order in one.
 
 Each phase ends with `cargo test` green and one commit on `feat/notchmon-companion-20260916`.
 All six shipped on 2026-09-16; the crates and folders were renamed `notchmon` / `notchmon-hook` and
-the data folder moved to `%APPDATA%
-otchmon` (copied once from `codenotch`). Left for later: OS
+the data folder moved to `%APPDATA%\notchmon` (copied once from `codenotch`). Left for later: OS
 toast notifications (the bubbles stand in), Cursor and Antigravity tokens for the companion, save
-export/import.
+export/import, Codex fork/subagent replay dedup, a one-time migration of an old "Codenotch" autostart
+value (upgraders who had start-at-sign-in on re-enable it under Settings), and a cached tray sprite path
+(`tray_sprite_file` builds a PokéAPI client every 2 s while the option is on).
 
 1. tokens.rs with fixture tests.
 2. pokeapi.rs with a fake-server test for parsing.

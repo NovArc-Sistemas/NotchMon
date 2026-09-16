@@ -1249,6 +1249,7 @@ fn tray_sprite_file(app: &AppHandle) -> Option<std::path::PathBuf> {
             None => (v.current_id, v.active.as_ref().map(|a| a.is_shiny && !(a.ditto_disguise.is_some() && !a.ditto_revealed)).unwrap_or(false)),
         }
     };
+    // ponytail: a Client per call (two create_dir_all) every 2 s while the option is on; cache the file path if it ever shows up in a profile
     let client = pokeapi::Client::new();
     if id == 0 { client.asset("egg") } else { client.sprite(id, false, shiny) }
 }

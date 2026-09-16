@@ -400,11 +400,15 @@ pub fn start(app: AppHandle) {
         crate::activity::lower_thread_priority();
         let mut cache = load_cache();
         let mut first = true;
+        let mut last_save = std::time::Instant::now();
         loop {
             let now = now_secs();
             let changed = scan(&mut cache, now);
-            if changed || first {
+            // The cache is a few MB of JSON; while a session is active every pass changes it, so it
+            // is written at most every ten minutes (a crash costs one re-read of those minutes)
+            if first || (changed && last_save.elapsed().as_secs() >= 600) {
                 save_cache(&cache);
+                last_save = std::time::Instant::now();
             }
             // Aggregate every pass: "today" moves at midnight and the burn window slides
             let snap = aggregate(&cache, now);
