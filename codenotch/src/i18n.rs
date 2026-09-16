@@ -20,6 +20,9 @@ pub fn resolve_auto() -> &'static str {
             if name.starts_with("ru") {
                 return "ru";
             }
+            if name.starts_with("pt") {
+                return "pt";
+            }
         }
     }
     "en"
@@ -70,6 +73,11 @@ fn taskbar_shows_seconds() -> bool {
 /// "HH:mm" against "hh:mm tt"; text between single quotes is literal.
 fn is_24h_pattern(pattern: &str) -> bool {
     pattern.split('\'').step_by(2).any(|part| part.contains('H'))
+}
+
+/// The language in force: the choice, or the system's when it is "auto"
+pub fn resolve_lang(raw: &str) -> String {
+    if raw == "auto" { resolve_auto().to_string() } else { raw.to_string() }
 }
 
 pub fn tr(lang: &str, key: &str) -> &'static str {

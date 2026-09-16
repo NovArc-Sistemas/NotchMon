@@ -22,6 +22,8 @@ mod desktop_cache;
 mod codeburn;
 mod watcher;
 mod tokens;
+mod pokeapi;
+mod companion;
 
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
@@ -51,6 +53,8 @@ pub struct AppState {
     pub activity: Mutex<Vec<activity::Activity>>,
     /// Token usage read from the transcripts (the companion's food and the panel's token figures)
     pub tokens: Mutex<tokens::Snapshot>,
+    /// The companion engine (PokeTokenBar's game), fed by `tokens` once a minute
+    pub companion: companion::Shared,
 }
 
 fn resolved_lang(raw: &str) -> String {
@@ -250,6 +254,98 @@ fn get_claude_accounts(state: tauri::State<AppState>) -> Vec<usage::ClaudeAccoun
 #[tauri::command]
 fn get_tokens(state: tauri::State<AppState>) -> tokens::Snapshot {
     state.tokens.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn get_companion(state: tauri::State<AppState>) -> companion::View {
+    let e = state.companion.engine.lock().unwrap();
+    companion::view(&e)
+}
+
+/// One user action on the companion: buy:<item> | use:<item> | egg:<plain|uncommon|rare> |
+/// representative:<id|none> | difficulty:<growth>,<shop>. Returns the fresh view; the pages redraw from it.
+#[tauri::command]
+fn companion_action(app: AppHandle, action: String, arg: Option<String>) -> Result<companion::View, String> {
+    let st = app.state::<AppState>();
+    let mut e = st.companion.engine.lock().unwrap();
+    let arg = arg.unwrap_or_default();
+    let ok = match action.as_str() {
+        "buy" => companion::Item::from_key(&arg).map(|i| e.buy(i)).unwrap_or(false),
+        "use" => match arg.as_str() {
+            "rareCandy" => e.use_candy(),
+            "mint" => e.use_mint().is_some(),
+            _ => false,
+        },
+        "egg" => e.buy_egg(match arg.as_str() {
+            "uncommon" => Some(pokeapi::Rarity::Uncommon),
+            "rare" => Some(pokeapi::Rarity::Rare),
+            _ => None,
+        }),
+        "representative" => e.set_representative(arg.parse::<u32>().ok()),
+        "difficulty" => {
+            let mut it = arg.split(',').map(|x| x.trim().parse::<f64>().unwrap_or(1.0));
+            let (g, s) = (it.next().unwrap_or(1.0), it.next().unwrap_or(1.0));
+            e.set_difficulty(g, s);
+            true
+        }
+        _ => return Err(format!("unknown action {action}")),
+    };
+    if !ok {
+        return Err("refused".into());
+    }
+    if e.dirty {
+        e.save();
+    }
+    let v = companion::view(&e);
+    for ev in e.events.drain(..) {
+        let _ = app.emit("companion_event", &ev);
+    }
+    let _ = app.emit("companion", &v);
+    Ok(v)
+}
+
+/// A sprite as a data URL, downloaded on first use. `id` 0 = the egg; "item:<name>" for an item.
+#[tauri::command]
+fn get_sprite(what: String, animated: bool, shiny: bool) -> Option<String> {
+    let client = pokeapi::Client::new();
+    let file = if let Some(item) = what.strip_prefix("item:") {
+        client.asset(item)?
+    } else {
+        let id: u32 = what.parse().ok()?;
+        if id == 0 {
+            client.asset("egg")?
+        } else {
+            client.sprite(id, animated, shiny).or_else(|| if animated { client.sprite(id, false, shiny) } else { None })?
+        }
+    };
+    let bytes = std::fs::read(&file).ok()?;
+    let mime = if file.extension().map(|e| e == "gif").unwrap_or(false) { "image/gif" } else { "image/png" };
+    Some(format!("data:{mime};base64,{}", pokeapi::base64(&bytes)))
+}
+
+#[derive(serde::Serialize)]
+struct PokemonProfileView {
+    details: pokeapi::Details,
+    stats: Vec<companion::Stat>,
+    moves: Vec<(String, u32)>,
+}
+
+/// The profile page: details plus the stats of the owned individual (`dex_id`, or the active one)
+#[tauri::command]
+fn get_pokemon_details(state: tauri::State<AppState>, id: u32, dex_id: Option<String>) -> Option<PokemonProfileView> {
+    let mut e = state.companion.engine.lock().unwrap();
+    let details = e.ensure_details(id)?;
+    let (profile, nature) = match dex_id.as_deref().and_then(|d| e.state.dex.iter().find(|x| x.id == d)) {
+        Some(d) => (d.profile.clone(), d.nature.clone()),
+        None => match &e.state.active {
+            Some(a) => (a.profile.clone(), a.nature.clone()),
+            None => return None,
+        },
+    };
+    let mut p = profile;
+    p.enrich(&details);
+    let stats = companion::computed_stats(&details, &p, &nature);
+    Some(PokemonProfileView { details, stats, moves: p.moves })
 }
 
 #[tauri::command]
@@ -1217,6 +1313,7 @@ fn main() {
 
     let cfg = config::load();
     let port = cfg.port;
+    let lang_at_start = cfg.lang.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -1237,6 +1334,7 @@ fn main() {
             glyphs: Mutex::new(Default::default()),
             activity: Mutex::new(Vec::new()),
             tokens: Mutex::new(Default::default()),
+            companion: companion::Shared { engine: Mutex::new(companion::Engine::new(companion::load_state(), Box::new(pokeapi::Client::new()), &i18n::resolve_lang(&lang_at_start))) },
         })
         .invoke_handler(tauri::generate_handler![
             get_state,
@@ -1245,6 +1343,10 @@ fn main() {
             get_ring_reads,
             get_codeburn,
             get_tokens,
+            get_companion,
+            companion_action,
+            get_sprite,
+            get_pokemon_details,
             open_consumo,
             close_consumo,
             consumo_height,
@@ -1325,6 +1427,7 @@ fn main() {
             antigravity::start(handle.clone());
             codeburn::start(handle.clone());
             tokens::start(handle.clone());
+            companion::start(handle.clone());
             activity::start(handle.clone());
             // Collecting glyphs may read icon resources out of a few executables; do it off the main thread and push when done
             let gh = handle.clone();
