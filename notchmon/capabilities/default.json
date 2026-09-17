@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Codenotch notch, settings and usage windows: allow core APIs (event.listen is required for state broadcasts, and the settings window needs them too)",
-  "windows": ["notch", "settings", "consumo"],
+  "description": "NotchMon notch, settings, usage and pet windows: allow core APIs (event.listen is required for state broadcasts; the pet resizes and shows bubbles from them)",
+  "windows": ["notch", "settings", "consumo", "pet"],
   "permissions": ["core:default"]
 }

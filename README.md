@@ -152,7 +152,8 @@ cargo test -p notchmon                 # the engine, the readers, the PokéAPI p
 
 ## Settings
 
-Tray menu: **Settings…**, **Refresh usage now**, **Quit**. The settings window covers the
+Four ways in: the gear at the foot of the pill, the gear in the panel's header, a right-click
+anywhere on the pill, or the tray menu (**Settings…**, **Refresh usage now**, **Quit**). The settings window covers the
 taskbar icon, which rings the notch shows, its size, the **Companion** (pill layout, floating pet
 and its size, representative Pokémon, animation quality, used or remaining limits, event
 bubbles, the sprite in the taskbar icon, difficulty), start with Windows, the language (English,
@@ -291,7 +292,9 @@ então nada de antes da instalação conta. O codeburn continua cuidando dos dó
 
 ### Configurações
 
-Menu da bandeja: **Configurações…**, **Atualizar uso agora**, **Sair**. A janela de
+Quatro caminhos: a engrenagem no pé da barrinha, a engrenagem no cabeçalho do painel, clique
+direito em qualquer ponto da barrinha, ou o menu da bandeja (**Configurações…**, **Atualizar uso
+agora**, **Sair**). A janela de
 configurações tem a aba **Companheiro** (layout na barrinha, pet e tamanho, Pokémon
 representativo, animação, limite mostrado como usado ou restante, balões, sprite no ícone da
 bandeja, dificuldade) e o idioma, com português e inglês. Tudo fica em `%APPDATA%\notchmon`

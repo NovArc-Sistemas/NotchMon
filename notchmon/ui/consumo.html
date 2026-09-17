@@ -10,6 +10,7 @@
   .hd svg{width:20px;height:19px;display:block}
   .muted{color:#8a8a8a;font-size:10.5px}
   .x{color:#8a8a8a;font-size:18px;line-height:1;cursor:pointer;padding:0 2px}.x:hover{color:#fff}
+  .x.gear{display:inline-flex;padding:3px;border-radius:6px;margin-right:2px}.x.gear:hover{background:#1e1e1e}.x.gear svg{width:16px;height:16px}
   /* The five tabs: Uso is the codeburn panel as it was; the other four are the companion */
   .tabs{display:flex;gap:3px;background:#151515;border-radius:10px;padding:3px;margin-top:10px}
   .tabs span{flex:1;min-width:0;text-align:center;padding:6px 1px;border-radius:8px;color:#9a9a9a;font-size:11px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -135,7 +136,7 @@
 <div class="panel" id="panel">
   <div class="hd">
     <svg viewBox="0 0 60 56" role="img" aria-label="NovArc"><path d="M19 6 H6 V50 H19 V44 H12 V12 H19 Z" fill="#FFFFFF"></path><path d="M31.5 6 H39.5 L28.5 50 H20.5 Z" fill="#0A6CFF"></path><path d="M41 6 H54 V50 H41 V44 H48 V12 H41 Z" fill="#FFFFFF"></path></svg>
-    <b id="title">NotchMon</b><span class="muted" id="age"></span><span class="x" id="close" title="Close (Esc)">×</span>
+    <b id="title">NotchMon</b><span class="muted" id="age"></span><span class="x gear" id="settings" role="button" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span><span class="x" id="close" title="Close (Esc)">×</span>
   </div>
   <div class="tabs" id="tabs"><span data-t="uso">Uso</span><span data-t="companion">Companheiro</span><span data-t="shop">Loja</span><span data-t="bag">Mochila</span><span data-t="dex">Pokédex</span></div>
 
@@ -182,7 +183,7 @@ const ago=ms=>{const m=Math.round((Date.now()-ms)/60000);return m<1?T('just now'
 const mcpName=n=>/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(n)?'connector '+n.slice(0,4):n;
 
 /* ---- words: English, Portuguese ---- */
-const PT={
+const PT={'Settings':'Configurações',
   'Uso':'Uso','Companion':'Companheiro','Shop':'Loja','Bag':'Mochila','Pokédex':'Pokédex','All':'Tudo','Today':'Hoje','7 days':'7 dias','30 days':'30 dias','Month':'Mês',
   'Activity':'Atividade','Sessions':'Sessões','Tokens':'Tokens','Cost':'Custo','Calls':'Chamadas','less':'menos','more':'mais','just now':'agora','min ago':'min atrás','h ago':'h atrás',
   'codeburn is not installed (npm i -g codeburn).':'O codeburn não está instalado (npm i -g codeburn).','Reading codeburn… the first pass takes a minute or two.':'Lendo o codeburn… a primeira passada leva um ou dois minutos.',
@@ -207,6 +208,7 @@ const cap=s=>s?s.charAt(0).toUpperCase()+s.slice(1):'';
 const moveName=s=>String(s||'').split('-').map(cap).join(' ');
 function applyStatic(){
   document.querySelectorAll('#tabs span').forEach(s=>s.textContent=T({uso:'Uso',companion:'Companion',shop:'Shop',bag:'Bag',dex:'Pokédex'}[s.dataset.t]));
+  document.getElementById('settings').title=T('Settings');
   document.querySelectorAll('#prov span').forEach(s=>s.textContent=T({all:'All',claude:'Claude',codex:'Codex'}[s.dataset.v]));
   document.querySelectorAll('#per span').forEach(s=>s.textContent=T({today:'Today',week:'7 days','30days':'30 days',month:'Month'}[s.dataset.v]));
   document.querySelectorAll('#metric span').forEach(s=>s.textContent=T({s:'Sessions',tok:'Tokens',c:'Cost',k:'Calls'}[s.dataset.m]));
@@ -622,6 +624,7 @@ document.getElementById('per').addEventListener('click',e=>{const s=e.target.clo
 document.getElementById('metric').addEventListener('click',e=>{const s=e.target.closest('span'); if(!s)return; metric=s.dataset.m; document.querySelectorAll('#metric span').forEach(x=>x.classList.toggle('on',x===s)); paintHeat();});
 const close=()=>invoke('close_consumo').catch(()=>{});
 document.getElementById('close').addEventListener('click',close);
+document.getElementById('settings').addEventListener('click',()=>invoke('open_settings').catch(()=>{}));
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(profileId){profileId=null;render();} else close(); } });
 listen('codeburn',e=>{ if(e.payload){ cb=e.payload; render(); } }).catch(()=>{});
 listen('consumo_open',e=>{ const p=e.payload; if(!p) return; if(['companion','shop','bag','dex'].includes(p)){ setTab(p); } else { prov=p; setTab('uso'); } }).catch(()=>{});

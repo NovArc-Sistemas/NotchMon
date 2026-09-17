@@ -36,6 +36,9 @@
     background:radial-gradient(circle at 0 100%, transparent calc(var(--fillet) - 1.5px), #2e2e2e calc(var(--fillet) - 0.5px), #000 calc(var(--fillet) + 0.5px));
   }
   .cell{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%}
+  .gear-btn{width:30px;height:30px;border-radius:50%;background:#161616;border:1px solid #2e2e2e;display:flex;align-items:center;justify-content:center;color:#9a9a9a;cursor:pointer;margin-top:-2px}
+  .gear-btn:hover{color:#fff;background:#2a2a2a;border-color:#444}
+  .gear-btn svg{width:16px;height:16px}
   .ringwrap{position:relative;width:56px;height:56px}
   .ringwrap > svg.ring{position:absolute;inset:0;overflow:visible} /* pins only the ring itself; an inline logo svg must not match this or it ends up in the top-left corner */
   .glyph{
@@ -499,7 +502,7 @@ function renderRing(){
     const mon=monMode==='none'?'':`<div class="cell mon ${monMode==='hero'?'hero':''}" data-p="mon"><div class="ringwrap"><svg class="ring" viewBox="0 0 56 56"></svg><div class="glyph"><img alt=""></div></div>${monMode==='hero'?'<div class="mon-name"></div>':''}<div class="pct one">—</div></div>`;
     pill.innerHTML=(monMode==='hero'?mon+brand:brand+mon)+ps.map(p=>`<div class="cell" data-p="${p.id}">
       <div class="ringwrap"><svg class="ring" viewBox="0 0 56 56"></svg><div class="glyph ${(!glyphOf(p)&&p.glyph.length>1)?'small':''}">${glyphHtml(p)}</div></div>
-      <div class="pct">—</div></div>`).join('')+FOLD_TAB;
+      <div class="pct">—</div></div>`).join('')+`<div class="gear-btn" data-p="gear" role="button" aria-label="${textCopy('Settings')}" title="${textCopy('Settings')}">${GEAR}</div>`+FOLD_TAB;
     pill.dataset.cells=want;
   }
   const brandPct=pill.querySelector('.brand .pct'); if(brandPct) brandPct.textContent=cb.last24h?usd(cb.last24h.total):'—';
@@ -858,7 +861,7 @@ document.addEventListener('mousemove',e=>{
     const id=cellAt(e.clientX,e.clientY);
     if(id&&id!==hoverId){ hoverId=id; if(card.classList.contains('show')){ renderCard(); armWatchdog(); } }
     // Heading for the fold chevron is not asking for the card
-    if(!card.classList.contains('show') && !(e.target.closest&&e.target.closest('.tab'))) showCard();
+    if(!card.classList.contains('show') && !(e.target.closest&&(e.target.closest('.tab')||e.target.closest('.gear-btn')))) showCard();
   }
   else if(card.classList.contains('show')){ if(hideLogged++<5) jslog(`mousemove left the hot area -> collapse at ${e.clientX},${e.clientY}`); scheduleHide(); }
 });
@@ -882,7 +885,7 @@ listen('state',()=>{if(card.classList.contains('show'))armWatchdog();}).catch(()
 /* The pill can be dragged up and down the right edge. Press and move more than 4 px = drag (handed to Rust,
    which follows the system cursor; the card is collapsed first); release without moving = click (opens the provider's usage page). */
 let press=null, dragging=false;
-pill.addEventListener('mousedown',e=>{ if(e.button!==0)return; if(e.target.closest('.tab')){ setFolded(true); return; } press={x:e.clientX,y:e.clientY,id:cellAt(e.clientX,e.clientY)||hoverId}; });
+pill.addEventListener('mousedown',e=>{ if(e.button!==0)return; if(e.target.closest('.tab')){ setFolded(true); return; } if(e.target.closest('.gear-btn')){ press={x:e.clientX,y:e.clientY,id:'gear'}; return; } press={x:e.clientX,y:e.clientY,id:cellAt(e.clientX,e.clientY)||hoverId}; });
 document.addEventListener('mousemove',e=>{
   if(!press||dragging)return;
   if(Math.abs(e.clientY-press.y)>4||Math.abs(e.clientX-press.x)>4){
@@ -893,7 +896,8 @@ document.addEventListener('mousemove',e=>{
 document.addEventListener('mouseup',e=>{
   if(e.button!==0)return;
   if(press&&!dragging){
-    if(press.id==='novarc') invoke('open_consumo',{provider:'all'}).catch(e=>notice('open_consumo failed: '+e));
+    if(press.id==='gear') invoke('open_settings').catch(e=>notice('open_settings failed: '+e));
+    else if(press.id==='novarc') invoke('open_consumo',{provider:'all'}).catch(e=>notice('open_consumo failed: '+e));
     else if(press.id==='mon') invoke('open_consumo',{provider:'companion'}).catch(e=>notice('open_consumo failed: '+e));
     else invoke('open_provider_page',{provider:press.id}).catch(()=>{});
   }
