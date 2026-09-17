@@ -38,12 +38,6 @@ This file is read when someone is about to work, not for pleasure. Density beats
 
 ## NotchMon companion — `docs/plans/2026-09-16-notchmon-companion-plan.md` (2026-09-16)
 
-- `OPEN` **Pet size change verified by reasoning, not by a run.** Root cause found: the `pet`
-  window was missing from `notchmon/capabilities/default.json`, so `event.listen` was refused
-  and `pet.html` never received `companion_prefs`; the window resized, the sprite did not.
-  Fixed in this branch. Unblock: with the pet visible, Settings → Companion → pet size 48 → 384
-  and confirm the sprite grows; also confirm a bubble shows on the next Rare Candy.
-
 - `OPEN` **OS toast notifications.** The in-app bubbles (pill, pet) stand in for hatch,
   evolution, graduation, shiny and candy. Not ported because it needs `tauri-plugin-notification`
   and a permission entry. Unblock: add the plugin, gate it behind `companion.notifications`.
