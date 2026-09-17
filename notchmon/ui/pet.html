@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>NotchMon Pet</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;background:transparent;overflow:hidden;user-select:none;height:100%}
+  body{font-family:"Segoe UI",system-ui,sans-serif;color:#e8e8ea;font-size:11px}
+  /* Bubble headroom on top, the sprite in the middle, room for the menu: the window is sized to #root */
+  /* 84 px of headroom above the sprite for the bubble and the hover callout */
+  #root{display:flex;flex-direction:column;align-items:center;padding:84px 6px 6px;position:relative}
+  #bubble{background:#0a0a0a;border:1px solid #2e2e2e;border-radius:12px;padding:8px 10px;line-height:1.4;width:196px;display:none;position:absolute;left:50%;transform:translateX(-50%);z-index:2}
+  #bubble.show{display:block}
+  #bubble:after{content:"";position:absolute;left:50%;bottom:-7px;margin-left:-6px;border:6px solid transparent;border-top-color:#0a0a0a;border-bottom:0}
+  #bubble b{color:#fff}
+  #pet{image-rendering:pixelated;display:block;cursor:grab;object-fit:contain}
+  #pet:active{cursor:grabbing}
+  #pet.sleep{filter:grayscale(.6);opacity:.7}
+  #pet.tired{filter:saturate(.4)}
+  #callout{background:#0a0a0a;border:1px solid #2e2e2e;border-radius:10px;padding:8px 10px;color:#c8c8c8;width:180px;line-height:1.5;display:none;position:absolute;z-index:2}
+  #callout.show{display:block}
+  #callout b{color:#fff}
+  #menu{background:#1c1c1c;border:1px solid #3a3a3a;border-radius:8px;padding:4px;width:160px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.6);display:none;position:absolute;z-index:3}
+  #menu.show{display:block}
+  #menu div{padding:6px 10px;border-radius:5px;cursor:pointer}
+  #menu div:hover{background:#0a84ff;color:#fff}
+  #menu .sep{height:1px;background:#3a3a3a;padding:0;margin:3px 0;cursor:default}
+  #menu .sep:hover{background:#3a3a3a}
+  #menu .sub{display:flex;gap:4px;padding:4px 6px}
+  #menu .sub span{flex:1;text-align:center;padding:3px 0;border-radius:5px;background:#2a2a2a;cursor:pointer;font-size:11px}
+  #menu .sub span.on{background:#0a84ff}
+</style></head><body>
+<div id="root">
+  <div id="bubble"></div>
+  <img id="pet" alt="" draggable="false">
+  <div id="callout"></div>
+  <div id="menu"></div>
+</div>
+<script>
+const invoke=window.__TAURI__.core.invoke, listen=window.__TAURI__.event.listen;
+let comp=null, prefs={petSize:96,animation:'balanced',notifications:true}, tokSnap=null, usage={windows:[]}, lang='en';
+const SPR={}, pending=new Set();
+const PT={'Egg':'Ovo','Today':'Hoje','to hatch':'para chocar','to graduation':'para formar','to next evolution':'para evoluir','Open NotchMon':'Abrir NotchMon','Bag':'Mochila','Shop':'Loja','Pokédex':'Pokédex','Size':'Tamanho','Hide pet':'Esconder pet','Hatched!':'Chocou!','Shiny!':'Shiny!','evolved!':'evoluiu!','Graduated!':'Formou-se!','Rare Candy':'Rare Candy','in the bag':'na mochila','Huh? It is Ditto!':'Ué? É um Ditto!','Weekly':'Semanal','5-hour session':'Sessão de 5 h','at':'em','Common':'Comum','Uncommon':'Incomum','Rare':'Raro','Legendary':'Lendário','week':'semana'};
+const T=k=>lang==='pt'?(PT[k]||k):k;
+const esc=s=>{const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;};
+function tok(n){ n=Number(n)||0; const trim=(v,d)=>{let s=v.toFixed(d); while(s.endsWith('0')) s=s.slice(0,-1); if(s.endsWith('.')) s=s.slice(0,-1); return s;}; if(n<1e3) return String(n); if(n<1e6) return trim(n/1e3,1)+'K'; if(n<1e9) return trim(n/1e6,1)+'M'; return trim(n/1e9,2)+'B'; }
+function spr(id,anim,shiny){
+  const k=`${id}|${anim?1:0}|${shiny?1:0}`; if(SPR[k]) return SPR[k];
+  if(!pending.has(k)){ pending.add(k); invoke('get_sprite',{what:String(id),animated:!!anim,shiny:!!shiny}).then(u=>{pending.delete(k); if(u){SPR[k]=u; render();}}).catch(()=>pending.delete(k)); }
+  return SPR[`${id}|0|${shiny?1:0}`]||'';
+}
+const pet=document.getElementById('pet'), bubble=document.getElementById('bubble'), callout=document.getElementById('callout'), menu=document.getElementById('menu'), root=document.getElementById('root');
+function shiny(){ if(!comp) return false; if(comp.representative) return !!comp.representativeShiny; return !!(comp.active&&comp.active.isShiny&&!(comp.active.dittoDisguise&&!comp.active.dittoRevealed)); }
+function animated(){ if(prefs.animation==='saver') return false; if(prefs.animation==='smooth') return true; return comp&&['working','focus','levelUp'].includes(comp.display); }
+function render(){
+  const size=prefs.petSize||96;
+  pet.style.width=size+'px'; pet.style.height=size+'px';
+  if(!comp){ pet.src=spr(0,false,false); return; }
+  const id=comp.representative||(comp.isEgg?0:comp.currentId);
+  const u=spr(id,id!==0&&animated(),shiny()); if(u&&pet.src!==u) pet.src=u;
+  pet.className=comp.display==='sleep'?'sleep':comp.display==='tired'?'tired':'';
+  report();
+}
+let lastH=0;
+function report(){ requestAnimationFrame(()=>{ const h=Math.ceil(root.getBoundingClientRect().height)+2; if(Math.abs(h-lastH)>1){ lastH=h; invoke('pet_height',{h}).catch(()=>{}); } }); }
+/* Hover: today's usage and the limits, over the sprite */
+function todayTokens(){ if(!tokSnap||!tokSnap.providers) return 0; return Object.values(tokSnap.providers).reduce((a,p)=>a+p.today.in+p.today.out+p.today.cw+p.today.cr,0); }
+pet.addEventListener('mouseenter',()=>{
+  if(!comp||menu.classList.contains('show')) return;
+  const five=usage.windows.find(w=>w.id==='session'), week=usage.windows.find(w=>w.id==='weekly_all')||usage.windows.find(w=>w.id==='seven_day');
+  const lim=[five?`5h ${Math.round(five.used*100)}%`:'',week?`${T('week')} ${Math.round(week.used*100)}%`:''].filter(Boolean).join(' · ');
+  const head=comp.isEgg?`<b>${T('Egg')}</b> · ${tok(Math.max(0,comp.eggThreshold-comp.eggUsage))} ${T('to hatch')}`:`<b>${esc(comp.name)}</b> · ${T({common:'Common',uncommon:'Uncommon',rare:'Rare',legendary:'Legendary'}[comp.active.rarity])}<br>${tok(comp.tokensToNext)} ${comp.isFinal?T('to graduation'):T('to next evolution')}`;
+  callout.innerHTML=`${head}<br>${T('Today')} <b>${tok(todayTokens())}</b>${lim?'<br>'+lim:''}`;
+  callout.classList.add('show'); placeOver(callout);
+});
+pet.addEventListener('mouseleave',()=>callout.classList.remove('show'));
+function placeOver(el){ const r=pet.getBoundingClientRect(); el.style.left=Math.max(0,Math.round(r.left+r.width/2-el.offsetWidth/2))+'px'; el.style.top=Math.max(0,Math.round(r.top-el.offsetHeight-4))+'px'; }
+/* Press and move = drag the window; a plain click opens the panel */
+let press=null;
+pet.addEventListener('mousedown',e=>{ if(e.button!==0) return; press={x:e.clientX,y:e.clientY,t:Date.now()}; callout.classList.remove('show'); menu.classList.remove('show'); });
+document.addEventListener('mousemove',e=>{ if(!press) return; if(Math.abs(e.clientX-press.x)>4||Math.abs(e.clientY-press.y)>4){ press=null; invoke('pet_drag').catch(()=>{}); } });
+document.addEventListener('mouseup',e=>{ if(e.button===0&&press){ press=null; invoke('pet_open_panel',{tab:'companion'}).catch(()=>{}); } });
+/* Right click: the menu */
+document.addEventListener('contextmenu',e=>{
+  e.preventDefault(); if(!comp) return;
+  const sizes=[48,96,192,384];
+  menu.innerHTML=`<div data-a="companion">${T('Open NotchMon')}</div><div data-a="bag">${T('Bag')}</div><div data-a="shop">${T('Shop')}</div><div data-a="dex">${T('Pokédex')}</div><div class="sep"></div><div style="cursor:default;color:#9a9a9a">${T('Size')}</div><div class="sub">${sizes.map(s=>`<span data-size="${s}" class="${prefs.petSize===s?'on':''}">${s}</span>`).join('')}</div><div class="sep"></div><div data-a="hide">${T('Hide pet')}</div>`;
+  menu.classList.add('show'); callout.classList.remove('show');
+  const r=pet.getBoundingClientRect(); menu.style.left=Math.max(0,Math.min(root.clientWidth-menu.offsetWidth,Math.round(e.clientX)))+'px'; menu.style.top=Math.max(0,Math.min(root.clientHeight-menu.offsetHeight,Math.round(e.clientY)))+'px';
+  menu.querySelectorAll('[data-a]').forEach(d=>d.addEventListener('click',()=>{ const a=d.dataset.a; menu.classList.remove('show'); if(a==='hide') invoke('set_companion_prefs',{prefs:Object.assign({},prefs,{pet:false})}).catch(()=>{}); else invoke('pet_open_panel',{tab:a}).catch(()=>{}); }));
+  menu.querySelectorAll('[data-size]').forEach(d=>d.addEventListener('click',()=>{ menu.classList.remove('show'); invoke('set_companion_prefs',{prefs:Object.assign({},prefs,{petSize:Number(d.dataset.size)})}).catch(()=>{}); }));
+});
+document.addEventListener('mousedown',e=>{ if(menu.classList.contains('show')&&!menu.contains(e.target)) menu.classList.remove('show'); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') menu.classList.remove('show'); });
+/* Events as a speech bubble above the sprite */
+let bubbleT=null;
+function say(h){ bubble.innerHTML=h; bubble.classList.add('show'); const r=pet.getBoundingClientRect(); bubble.style.top=Math.max(0,Math.round(r.top-bubble.offsetHeight-8))+'px'; clearTimeout(bubbleT); bubbleT=setTimeout(()=>bubble.classList.remove('show'),7000); }
+listen('companion_event',e=>{
+  const ev=e.payload; if(!ev||!prefs.notifications) return;
+  if(ev.kind==='hatched') say(`<b>${ev.shiny?'✨ '+T('Shiny!'):'🥚 '+T('Hatched!')}</b><br>${esc(ev.name)}`);
+  else if(ev.kind==='evolved') say(`<b>✨ ${esc(ev.name)} ${T('evolved!')}</b>`);
+  else if(ev.kind==='graduated') say(`<b>🎓 ${T('Graduated!')}</b><br>${esc(ev.name)}`);
+  else if(ev.kind==='candy') say(`<b>🍬 +${ev.count} ${T('Rare Candy')}</b><br>${esc(ev.window)} · ${T('in the bag')}`);
+  else if(ev.kind==='dittoRevealed') say(`<b>🎭 ${T('Huh? It is Ditto!')}</b>`);
+}).catch(()=>{});
+// A limit that crossed 90 % is worth a word, once per crossing
+let warned={};
+listen('usage',e=>{ usage=e.payload||usage; const w=usage.windows.find(x=>x.id==='session'); if(w){ if(w.used>=.9&&!warned.session){ warned.session=true; if(prefs.notifications) say(`<b>${T('5-hour session')} ${Math.round(w.used*100)}%</b>`); } if(w.used<.9) warned.session=false; } }).catch(()=>{});
+listen('companion',e=>{ if(e.payload){ comp=e.payload; render(); } }).catch(()=>{});
+listen('companion_prefs',e=>{ if(e.payload){ prefs=e.payload; render(); } }).catch(()=>{});
+listen('tokens',e=>{ if(e.payload) tokSnap=e.payload; }).catch(()=>{});
+listen('state',e=>{ if(e.payload) lang=e.payload.lang_resolved==='pt'?'pt':'en'; }).catch(()=>{});
+invoke('get_state').then(s=>{ if(s) lang=s.lang_resolved==='pt'?'pt':'en'; }).catch(()=>{});
+invoke('get_companion_prefs').then(p=>{ if(p) prefs=p; render(); }).catch(()=>render());
+invoke('get_companion').then(v=>{ if(v){ comp=v; render(); } }).catch(()=>{});
+invoke('get_tokens').then(v=>{ if(v) tokSnap=v; }).catch(()=>{});
+invoke('get_usage').then(u=>{ usage=u||usage; }).catch(()=>{});
+</script>
+</body></html>
