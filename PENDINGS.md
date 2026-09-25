@@ -36,6 +36,24 @@ This file is read when someone is about to work, not for pleasure. Density beats
 
 ---
 
+## Roadmap specs — `docs/plans/2026-09-24-cohesive-ui-00-roadmap.md` (2026-09-25)
+
+- `GATED` **Eleven roadmap decisions await the maintainer.** Positioning, hub replacing panel A,
+  built-in spend without codeburn, color/severity/label locks, rail label "Parceiro", ru in the
+  hub, macOS testing route. Listed under "Decisions to confirm" in the roadmap. Specs were written
+  on the proposed answers. Unblock: a yes/no per item before the slice that names it.
+
+- `GATED` **Repo description still says "Codenotch for Windows, NOVARC edition".** Upstream
+  vinzdg/codenotch shipped its own Windows port in v1.18.0 (2026-09-24), and the name is not ours
+  to headline. Not changed because positioning (decision 1) is unconfirmed. Unblock: decision 1,
+  then description, topics and social preview (`docs/GROWTH.md` launch gate).
+
+- `ACCEPTED` **Canvas and reference page have no source in the repo.** The generator (`gen.mjs` +
+  `refpart.mjs`) lived in the 2026-09-24 session scratchpad. Canvas:
+  https://claude.ai/artifact/Eve6H3TaBYmXNve4Kei1Bk, reference:
+  https://claude.ai/artifact/T18BRUuUfXr4JdF1yyT62L. To change them, read the artifacts back and
+  edit. Committing a design generator was out of scope for a docs branch.
+
 ## NotchMon companion — `docs/plans/2026-09-16-notchmon-companion-plan.md` (2026-09-16)
 
 - `OPEN` **OS toast notifications.** The in-app bubbles (pill, pet) stand in for hatch,
